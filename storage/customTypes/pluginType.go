@@ -17,9 +17,9 @@ func (t *PluginType) Value() (driver.Value, error) {
 }
 
 func (t *PluginType) Scan(value any) error {
-	v, ok := value.(int)
+	v, ok := value.(int64)
 	if !ok {
-		return fmt.Errorf("failed to cast value %v as int", value)
+		return fmt.Errorf("failed to cast value %+v as int. Type according to Go: %T", value, value)
 	}
 	*t = PluginType(v)
 	return nil

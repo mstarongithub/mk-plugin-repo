@@ -9,8 +9,14 @@ require (
 	github.com/volatiletech/authboss-renderer v0.0.0-20210622044114-b32bb7a1387f
 	github.com/volatiletech/authboss/v3 v3.5.0
 	gitlab.com/mstarongitlab/goutils v0.0.0-20240221131250-70f6d1947636
+	gitlab.com/mstarongitlab/weblogger v0.0.0-20240228083417-161d4aea06ec
 	gorm.io/driver/sqlite v1.5.5
 	gorm.io/gorm v1.25.9
+)
+
+require (
+	cloud.google.com/go/compute v1.20.1 // indirect
+	github.com/alexedwards/argon2id v1.0.0 // indirect
 )
 
 require (
@@ -20,7 +26,7 @@ require (
 	github.com/gorilla/securecookie v1.1.1 // indirect
 	github.com/gorilla/sessions v1.2.1
 	github.com/pquerna/otp v1.4.0 // indirect
-	golang.org/x/oauth2 v0.19.0 // indirect
+	golang.org/x/oauth2 v0.19.0
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 )
 

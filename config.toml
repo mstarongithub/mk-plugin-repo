@@ -1,0 +1,4 @@
+root_url = "localhost:8080"
+
+[ssl_config]
+handle_ssl_in_app = false
