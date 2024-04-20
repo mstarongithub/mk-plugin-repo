@@ -31,11 +31,16 @@ Version 1 of the API resides under `/api/v1`
   - `code`: `string` - The code of the first version
 
 - UpdatePlugin:
+
   - `name`: `string | undefined` - The new name. Not required
   - `summary_short`: `string | undefined` - The new short description. Not required
   - `summary_long`: `string | undefined` - The new full description. Not required
   - `tags`: `[string] | undefined` - The new tags of the plugin. Not required
   - `type`: `string | undefined` - New type of the plugin. Valid values are `"plugin"` and `"widget"`. Not required
+
+- PluginVersion:
+  - `code`: `string` - The full code of this version
+  - `aiscript_version`: `string` - The version of AIScript this plugin version is intended for
 
 ### Endpoints
 
@@ -46,3 +51,5 @@ Version 1 of the API resides under `/api/v1`
   - GET: Returns the plugin with the specified ID. Return value: One json-encoded `Plugin`
   - PUT: (Restricted in the future) Update a plugin with the specified ID. Requires the body to contain a json-encoded version of `UpdatePlugin`
   - DELETE: (Restricted in the future) Delete a plugin. Requires no further information
+- /api/v1/plugins/{id}/{version}
+  - GET: Returns the specified version. Return value: One json-encoded `PluginVersion`

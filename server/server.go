@@ -93,9 +93,7 @@ func buildV1Router() http.Handler {
 
 	router.HandleFunc("GET /plugins", getPluginList)
 	router.HandleFunc("GET /plugins/{pluginId}", getSpecificPlugin)
-	router.HandleFunc("GET /{$}", func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprint(w, "Test lol")
-	})
+	router.HandleFunc("GET /plugins/{pluginId}/{versionName}", getVersion)
 	router.Handle("/", buildV1RestrictedRouter())
 
 	return router

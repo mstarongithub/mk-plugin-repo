@@ -11,9 +11,10 @@ import (
 
 type PluginVersion struct {
 	gorm.Model
-	Version  string `gorm:"version;<-create"`    // The version string
-	Code     string `gorm:"code;<-:create"`      // Raw code for this version
-	PluginID uint   `gorm:"plugin_id;<-:create"` // The plugin ID this version belongs to
+	Version         string `gorm:"version;<-create"`           // The version string
+	Code            string `gorm:"code;<-:create"`             // Raw code for this version
+	PluginID        uint   `gorm:"plugin_id;<-:create"`        // The plugin ID this version belongs to
+	AiScriptVersion string `gorm:"aiscript_version;<-:create"` // The targeted AIScript version this plugin version was made for
 }
 
 var ErrVersionAlreadyExists = errors.New("version already exists")
