@@ -91,7 +91,10 @@ func (storage *Storage) HideVersion(pluginID uint, versionName string) error {
 	return nil
 }
 
-func (storage *Storage) NewVersion(forPluginID uint, versionName string, code string) error {
+func (storage *Storage) NewVersion(
+	forPluginID uint,
+	versionName, code, aiscript_version string,
+) error {
 	// First check if a version already exists
 	_, err := storage.TryFindVersion(forPluginID, versionName)
 	if !errors.Is(err, ErrVersionNotFound) {

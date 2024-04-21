@@ -39,17 +39,49 @@ Version 1 of the API resides under `/api/v1`
   - `type`: `string | undefined` - New type of the plugin. Valid values are `"plugin"` and `"widget"`. Not required
 
 - PluginVersion:
+
   - `code`: `string` - The full code of this version
   - `aiscript_version`: `string` - The version of AIScript this plugin version is intended for
+
+- NewVersion:
+  - `code`: `string` - The full code of this version
+  - `aiscript_version`: `string` - The version of AIScript this plugin is intended for
+  - `version_name`: `string` - The name of the version
 
 ### Endpoints
 
 - /api/v1/plugins
-  - GET: A list of all plugins in json format. Return value: Array of `Plugin`
-  - POST: (Restricted in the future) Create a new plugin. Requires the body to contain a json-encoded version of `NewPlugin`
+  - GET:
+    - A list of all plugins in json format
+    - Receives: Nothing
+    - Returns: Array of `Plugin`
+  - POST:
+    - (Restricted in the future) Create a new plugin
+    - Receives: `NewPlugin`
+    - Returns: Nothing
 - /api/v1/plugins/{id}
-  - GET: Returns the plugin with the specified ID. Return value: One json-encoded `Plugin`
-  - PUT: (Restricted in the future) Update a plugin with the specified ID. Requires the body to contain a json-encoded version of `UpdatePlugin`
-  - DELETE: (Restricted in the future) Delete a plugin. Requires no further information
+  - GET:
+    - Returns the plugin with the specified ID
+    - Receives: Nothing
+    - Returns `Plugin`
+  - POST:
+    - (Restricted in the future) Create a new version of the plugin
+    - Receives: `NewVersion`
+    - Returns: Nothing
+  - PUT:
+    - (Restricted in the future) Update a plugin with the specified ID
+    - Receives `UpdatePlugin`
+    - Returns: Nothing
+  - DELETE:
+    - (Restricted in the future) Delete a plugin
+    - Receives: Nothing
+    - Returns: Nothing
 - /api/v1/plugins/{id}/{version}
-  - GET: Returns the specified version. Return value: One json-encoded `PluginVersion`
+  - GET:
+    - Returns the specified version
+    - Receives: Nothing
+    - Returns: `PluginVersion`
+  - DELETE:
+    - (Restricted in the future) Delete a plugin version
+    - Receives: Nothing
+    - Returns Nothing
