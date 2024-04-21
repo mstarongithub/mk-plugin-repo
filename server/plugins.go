@@ -17,13 +17,14 @@ import (
 
 // Data expected for making a new plugin via POST /api/v1/plugins
 type NewPluginData struct {
-	Name           string   `json:"name"`            // Name of the plugin
-	SummaryShort   string   `json:"summary_short"`   // A short summary
-	SummaryLong    string   `json:"summary_long"`    // A full description of the plugin
-	InitialVersion string   `json:"initial_version"` // The version of this new plugin
-	Code           string   `json:"code"`            // The code associated with this new plugin and version
-	Tags           []string `json:"tags"`            // The tags this plugin falls under
-	Type           string   `json:"type"`            // What type the plugin is. Valid values are "plugin" and "widget"
+	Name            string   `json:"name"`             // Name of the plugin
+	SummaryShort    string   `json:"summary_short"`    // A short summary
+	SummaryLong     string   `json:"summary_long"`     // A full description of the plugin
+	InitialVersion  string   `json:"initial_version"`  // The version of this new plugin
+	Code            string   `json:"code"`             // The code associated with this new plugin and version
+	Tags            []string `json:"tags"`             // The tags this plugin falls under
+	Type            string   `json:"type"`             // What type the plugin is. Valid values are "plugin" and "widget"
+	AIScriptVersion string   `json:"aiscript_version"` // The AI Script version this plugin is intended for
 }
 
 // Data a request to read a Plugin returns (GET /api/v1/plugins -> Array of this, GET /api/v1/plugins/{Plugin-id} -> One instance)
@@ -164,6 +165,7 @@ func addNewPlugin(w http.ResponseWriter, r *http.Request) {
 		newPlugin.Tags,
 		pluginType,
 		newPlugin.Code,
+		newPlugin.AIScriptVersion,
 	)
 	if err != nil {
 		// TODO: Add logging

@@ -53,21 +53,23 @@ func (storage *Storage) GetPluginByID(pluginID uint) (*Plugin, error) {
 	return &plugin, nil
 }
 
-// TODO: Complete this
+// Tell a plugin that a new version has been added
 func (storage *Storage) PushNewPluginVersion(
 	pluginID uint,
 	versionName string,
-	code string,
 ) (*Plugin, error) {
 	plugin, err := storage.GetPluginByID(pluginID)
 	if err != nil {
 		return nil, err
 	}
 	_, err = storage.TryFindVersion(pluginID, versionName)
-	if !errors.Is(err, ErrVersionNotFound) {
+	if err != nil {
+		return nil, err
 	}
-	_ = plugin // FIXME: Only done so it compiles for now
-	return nil, nil
+	plugin.PreviousVersions = append(plugin.PreviousVersions, versionName)
+	plugin.CurrentVersion = versionName
+	res := storage.db.Save(plugin)
+	return nil, res.Error
 }
 
 func (storage *Storage) NewPlugin(
@@ -79,6 +81,7 @@ func (storage *Storage) NewPlugin(
 	tags []string,
 	pluginType customtypes.PluginType,
 	code string,
+	aiscriptVersion string,
 ) (*Plugin, error) {
 	plugin := Plugin{
 		CurrentVersion:   firstVersion,
@@ -111,7 +114,7 @@ func (storage *Storage) NewPlugin(
 		return nil, fmt.Errorf("error while creating new plugin (data: %#v) in db: %w", plugin, err)
 	}
 
-	err = storage.NewVersion(plugin.ID, firstVersion, code)
+	err = storage.NewVersion(plugin.ID, firstVersion, code, aiscriptVersion)
 	if err != nil {
 		return nil, fmt.Errorf("error while creating first plugin version: %w", err)
 	}

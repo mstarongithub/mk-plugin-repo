@@ -29,6 +29,7 @@ Version 1 of the API resides under `/api/v1`
   - `tags`: `[string]` - The tags asocciated with this plugin
   - `type`: `string` - Type of the plugin. Valid values are `"plugin"` and `"widget"`
   - `code`: `string` - The code of the first version
+  - `aiscript_version`: `string` - The version of AIScript the first version targets
 
 - UpdatePlugin:
 

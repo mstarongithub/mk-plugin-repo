@@ -104,7 +104,9 @@ func buildV1RestrictedRouter() http.Handler {
 
 	router.HandleFunc("POST /plugins", addNewPlugin)
 	router.HandleFunc("PUT /plugins/{pluginId}", updateSpecificPlugin)
+	router.HandleFunc("POST /plugins/{pluginId}", newVersion)
 	router.HandleFunc("DELETE /plugins/{pluginId}", deleteSpecificPlugin)
+	router.HandleFunc("DELETE /plugins/[pluginId]/{versionName}", hideVersion)
 
 	return router
 }

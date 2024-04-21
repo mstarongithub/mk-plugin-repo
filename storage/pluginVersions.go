@@ -123,7 +123,7 @@ func (storage *Storage) NewVersion(
 	}
 
 	// And update the parent plugin
-	_, err = storage.PushNewPluginVersion(forPluginID, versionName, code)
+	_, err = storage.PushNewPluginVersion(forPluginID, versionName)
 	if err != nil {
 		// TODO: Add logging
 		return fmt.Errorf("failed to update plugin info: %w", err)
