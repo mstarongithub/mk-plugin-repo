@@ -92,7 +92,7 @@ func getPluginList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "json conversion failed", http.StatusInternalServerError)
 		return
 	}
-	fmt.Fprint(w, data)
+	fmt.Fprint(w, string(data))
 }
 
 // POST /api/v1/plugins
@@ -101,16 +101,15 @@ func getPluginList(w http.ResponseWriter, r *http.Request) {
 // New plugins will only be available after approval from an admin
 // Body must be a json version of NewPluginData
 func addNewPlugin(w http.ResponseWriter, r *http.Request) {
-	logrus.Debugln("addNewPlugin called")
 	store := StorageFromRequest(r)
 	// ab := AuthbossFromRequest(r)
 	if store == nil {
-		// TODO: Add logging
+		logrus.Errorln("addNewPlugin: Couldn't get storage from request context")
 		http.Error(w, "couldn't get storage from request context", http.StatusInternalServerError)
 		return
 	}
 	// if ab == nil {
-	// TODO: Add logging
+	// logrus.Errorln("addNewPlugin: Couldn't get auth layer from request context")
 	// 	http.Error(
 	// 		w,
 	// 		"couldn't get auth layer from request context",
@@ -118,17 +117,14 @@ func addNewPlugin(w http.ResponseWriter, r *http.Request) {
 	// 	)
 	// 	return
 	// }
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		// TODO: Add logging
-		http.Error(w, fmt.Sprintf("error reading body: %s", err.Error()), http.StatusBadRequest)
-		return
-	}
+	body, _ := io.ReadAll(r.Body)
 
 	newPlugin := NewPluginData{}
-	err = json.Unmarshal(body, &newPlugin)
+	err := json.Unmarshal(body, &newPlugin)
 	if err != nil {
-		// TODO: Add logging
+		logrus.WithError(err).
+			WithField("body", string(body)).
+			Errorln("Failed to parse json from body")
 		http.Error(
 			w,
 			"body must be a json-encoded representation of NewPluginData",
@@ -141,7 +137,9 @@ func addNewPlugin(w http.ResponseWriter, r *http.Request) {
 	stringUID := "12345" // FIX: Remove this line and uncomment the one above. This is for debug purposes
 	uid, err := strconv.ParseUint(stringUID, 10, 0)
 	if err != nil {
-		// TODO: Add logging
+		logrus.WithError(err).
+			WithField("userID", stringUID).
+			Infoln("Failed to parse userId. Refusing access")
 		http.Error(w, "invalid user id", http.StatusUnauthorized)
 		return
 	}
@@ -155,7 +153,10 @@ func addNewPlugin(w http.ResponseWriter, r *http.Request) {
 		pluginType = customtypes.PLUGIN_TYPE_WIDGET
 	}
 	// Then try throwing it into the db
-	// TODO: Add logging
+	logrus.WithFields(logrus.Fields{
+		"plugin": newPlugin,
+		"uid":    uid,
+	}).Debugln("Attempting to add plugin to db")
 	_, err = store.NewPlugin(
 		newPlugin.Name,
 		uint(uid),
@@ -168,7 +169,7 @@ func addNewPlugin(w http.ResponseWriter, r *http.Request) {
 		newPlugin.AIScriptVersion,
 	)
 	if err != nil {
-		// TODO: Add logging
+		logrus.WithError(err).WithField("plugin", newPlugin).Errorln("Failed to add plugin to db")
 		http.Error(
 			w,
 			fmt.Sprintf("failed to insert new plugin. Error: %s", err.Error()),
