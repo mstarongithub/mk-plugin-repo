@@ -87,7 +87,7 @@ func getVersion(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "json marshalling failed", http.StatusInternalServerError)
 		return
 	}
-	fmt.Fprint(w, binaryData)
+	fmt.Fprint(w, string(binaryData))
 }
 
 // POST /api/v1/plugins/{pluginId}

@@ -7,6 +7,14 @@ COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 
 COPY . .
-RUN go build -v -o /usr/local/bin/app
+RUN --mount=type=cache,target=/go-cache GOCACHE=/go-cache CGO_ENABLED=1 GOOS=linux go build -o /server
 
-CMD ["app"]
+FROM gcr.io/distroless/base-debian12 AS release-stage
+
+WORKDIR /
+
+COPY --from=buildstage-go /server /server
+
+EXPOSE 8080
+
+CMD [ "/server" ]

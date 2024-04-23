@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"net/http"
 
+	"github.com/sirupsen/logrus"
 	"github.com/volatiletech/authboss/v3"
 	"gitlab.com/mstarongitlab/weblogger"
 
@@ -76,6 +77,7 @@ func buildFrontendRouter(frontendFS fs.FS, index string) (http.Handler, error) {
 }
 
 func (s *Server) Run(addr string) error {
+	logrus.WithField("adress", addr).Infoln("Starting webserver")
 	return http.ListenAndServe(addr, s.handler)
 }
 

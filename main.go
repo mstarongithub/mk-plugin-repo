@@ -10,7 +10,10 @@ import (
 	"github.com/mstarongithub/mk-plugin-repo/config"
 	"github.com/mstarongithub/mk-plugin-repo/server"
 	"github.com/mstarongithub/mk-plugin-repo/storage"
+	"github.com/mstarongithub/mk-plugin-repo/util"
 )
+
+const DB_DEFAULT_FILE = "db.sqlite"
 
 //go:embed frontend
 var frontendFS embed.FS
@@ -21,7 +24,13 @@ func main() {
 	if err != nil {
 		logrus.WithError(err).Warnln("Err reading config")
 	}
-	store, err := storage.NewStorage("db.sqlite", nil)
+
+	err = util.CreateFileIfNotExists(DB_DEFAULT_FILE)
+	if err != nil {
+		panic(err)
+	}
+
+	store, err := storage.NewStorage(DB_DEFAULT_FILE, nil)
 	if err != nil {
 		panic(err)
 	}
