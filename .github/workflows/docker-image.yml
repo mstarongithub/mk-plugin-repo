@@ -2,9 +2,9 @@ name: Docker build and push
 
 on:
   push:
-    branch: ["main"]
+    branches: ["main"]
 
-environment:
+env:
   REGISTRY: ghcr.io
   IMAGE_NAME: mstarongithub/mk-plugin-repo
 
