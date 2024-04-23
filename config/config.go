@@ -13,6 +13,14 @@ var ErrNoConfig = fmt.Errorf("no config set")
 
 var GlobalConfig *Config
 
+type ConfigGeneral struct {
+	// The root domain where the entire project resides under
+	// This includes port and protocol. Examples:
+	// - http://localhost:8080
+	// - https://subdomain.example.com
+	RootUrl string `toml:"root_url"`
+}
+
 type ConfigSSL struct {
 	// Whether the server should handle ssl verification itself
 	// If it's behind a router like nginx or traeffik, you probably want to disable this
@@ -30,15 +38,11 @@ type ConfigOauth struct {
 }
 
 type Config struct {
-	// The root domain where the entire project resides under
-	// This includes port and protocol. Examples:
-	// - http://localhost:8080
-	// - https://subdomain.example.com
-	RootUrl string `toml:"root_url"`
+	General ConfigGeneral `toml:"general"`
 	// SSL Config. Required
-	SslConfig ConfigSSL `toml:"ssl_config"`
+	SslConfig ConfigSSL `toml:"ssl"`
 	// OAuth config. Optional
-	OAuthConfig *ConfigOauth `toml:"oauth_config"`
+	OAuthConfig *ConfigOauth `toml:"oauth"`
 }
 
 func ReadConfig(fileName *string) (Config, error) {
