@@ -47,6 +47,8 @@ gitlab.com/mstarongitlab/goutils v0.0.0-20240221131250-70f6d1947636 h1:HbPPcrMIr
 gitlab.com/mstarongitlab/goutils v0.0.0-20240221131250-70f6d1947636/go.mod h1:SvqfzFxgashuZPqR9kPwQ9gFA7I1yskZjhmGmY2pAow=
 gitlab.com/mstarongitlab/weblogger v0.0.0-20240228083417-161d4aea06ec h1:60zRg3gf2rU3+gsGG3GZSIgv+UhK/hoFA4emPM1eIOA=
 gitlab.com/mstarongitlab/weblogger v0.0.0-20240228083417-161d4aea06ec/go.mod h1:8G+BrXVs97wI7W+Z4E8M2MXFFKKy01cVnFazoCpNg9Y=
+gitlab.com/mstarongitlab/weblogger v1.0.0 h1:cmtNhYmvl6NoM5GAwYi4ZFDEX7OP2IjtLwQDMdTUbZY=
+gitlab.com/mstarongitlab/weblogger v1.0.0/go.mod h1:8G+BrXVs97wI7W+Z4E8M2MXFFKKy01cVnFazoCpNg9Y=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
 golang.org/x/crypto v0.0.0-20210921155107-089bfa567519/go.mod h1:GvvjBRRGRdwPK5ydBHafDWAxML/pGHZbMvKqRZ5+Abc=

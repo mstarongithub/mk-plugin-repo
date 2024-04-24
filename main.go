@@ -8,6 +8,7 @@ import (
 
 	_ "github.com/mstarongithub/mk-plugin-repo/auth-old"
 	"github.com/mstarongithub/mk-plugin-repo/config"
+	"github.com/mstarongithub/mk-plugin-repo/fswrapper"
 	"github.com/mstarongithub/mk-plugin-repo/server"
 	"github.com/mstarongithub/mk-plugin-repo/storage"
 	"github.com/mstarongithub/mk-plugin-repo/util"
@@ -15,7 +16,7 @@ import (
 
 const DB_DEFAULT_FILE = "db.sqlite"
 
-//go:embed frontend
+//go:embed frontend/build frontend/build/_app/*
 var frontendFS embed.FS
 
 func main() {
@@ -43,7 +44,11 @@ func main() {
 	// if err != nil {
 	// 	panic(err)
 	// }
-	httpServer, err := server.NewServer(frontendFS, "placeholder lol", nil, &store)
+	httpServer, err := server.NewServer(
+		fswrapper.NewFSWrapper(frontendFS, "frontend/build/", false),
+		nil,
+		&store,
+	)
 	if err != nil {
 		panic(err)
 	}

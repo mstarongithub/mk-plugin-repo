@@ -11,26 +11,32 @@ import (
 type FSWrapper struct {
 	wrapped fs.FS
 	toAdd   string
+	log     bool
 }
 
-func NewFSWrapper(wraps fs.FS, appends string) *FSWrapper {
+func NewFSWrapper(wraps fs.FS, appends string, logAccess bool) *FSWrapper {
 	return &FSWrapper{
 		wrapped: wraps,
 		toAdd:   appends,
+		log:     logAccess,
 	}
 }
 
 func (fs *FSWrapper) Open(name string) (fs.File, error) {
-	logrus.WithFields(logrus.Fields{
-		"prefix":   fs.toAdd,
-		"filename": name,
-		"wrapped":  fs.wrapped,
-	}).Debugln("fswrapper: Opening file with prefix")
+	if fs.log {
+		logrus.WithFields(logrus.Fields{
+			"prefix":   fs.toAdd,
+			"filename": name,
+			"wrapped":  fs.wrapped,
+		}).Debugln("fswrapper: Opening file with prefix")
+	}
 	res, err := fs.wrapped.Open(fs.toAdd + name)
-	logrus.WithFields(logrus.Fields{
-		"file":      res,
-		"err":       err,
-		"full-file": fs.toAdd + name,
-	}).Debugln("fswrapper: Result of opening file")
+	if fs.log {
+		logrus.WithFields(logrus.Fields{
+			"file":      res,
+			"err":       err,
+			"full-file": fs.toAdd + name,
+		}).Debugln("fswrapper: Result of opening file")
+	}
 	return res, err
 }

@@ -1,9 +1,9 @@
 package server
 
 import (
-	"fmt"
 	"io/fs"
 	"net/http"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	"github.com/volatiletech/authboss/v3"
@@ -29,13 +29,12 @@ const (
 
 func NewServer(
 	frontendFS fs.FS,
-	indexFile string,
 	ab *authboss.Authboss,
 	store *storage.Storage,
 ) (*Server, error) {
 	mainRouter := http.NewServeMux()
 
-	frontendRouter, _ := buildFrontendRouter(frontendFS, indexFile)
+	frontendRouter, _ := buildFrontendRouter(frontendFS)
 	apiRouter, _ := buildApiRouter(ab)
 
 	mainRouter.Handle("/", frontendRouter)
@@ -50,7 +49,10 @@ func NewServer(
 	server.handler = addContextValsMiddleware(
 		weblogger.LoggingMiddleware(
 			mainRouter,
-			weblogger.LOGGING_SEND_REQUESTS_DEBUG,
+			&weblogger.Config{
+				DefaultLogLevel:    weblogger.LOG_LEVEL_DEBUG,
+				FailedRequestLevel: weblogger.LOG_LEVEL_WARN,
+			},
 		),
 		map[any]any{
 			CONTEXT_KEY_SERVER:   &server,
@@ -63,11 +65,19 @@ func NewServer(
 }
 
 // NOTE: Error return value unused currently and can safely be ignored
-func buildFrontendRouter(frontendFS fs.FS, index string) (http.Handler, error) {
+func buildFrontendRouter(frontendFS fs.FS) (http.Handler, error) {
 	router := http.NewServeMux()
 
 	router.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, index)
+		http.ServeFileFS(w, r, frontendFS, "index.html")
+	})
+
+	router.HandleFunc("GET /{file}", func(w http.ResponseWriter, r *http.Request) {
+		fileName := r.PathValue("file")
+		if len(strings.Split(fileName, ".")) == 1 {
+			fileName += ".html"
+		}
+		http.ServeFileFS(w, r, frontendFS, fileName)
 	})
 
 	router.HandleFunc("GET /_app/", func(w http.ResponseWriter, r *http.Request) {

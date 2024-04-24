@@ -9,7 +9,7 @@ require (
 	github.com/volatiletech/authboss-renderer v0.0.0-20210622044114-b32bb7a1387f
 	github.com/volatiletech/authboss/v3 v3.5.0
 	gitlab.com/mstarongitlab/goutils v0.0.0-20240221131250-70f6d1947636
-	gitlab.com/mstarongitlab/weblogger v0.0.0-20240228083417-161d4aea06ec
+	gitlab.com/mstarongitlab/weblogger v1.0.0
 	gorm.io/driver/sqlite v1.5.5
 	gorm.io/gorm v1.25.9
 )
