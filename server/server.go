@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/rs/cors"
 	"github.com/sirupsen/logrus"
 	"github.com/volatiletech/authboss/v3"
 	"gitlab.com/mstarongitlab/weblogger"
@@ -46,21 +47,23 @@ func NewServer(
 		frontendFS: frontendFS,
 		authboss:   ab,
 	}
-	server.handler = addContextValsMiddleware(
-		weblogger.LoggingMiddleware(
-			mainRouter,
-			&weblogger.Config{
-				DefaultLogLevel:    weblogger.LOG_LEVEL_DEBUG,
-				FailedRequestLevel: weblogger.LOG_LEVEL_WARN,
+
+	server.handler = cors.AllowAll().Handler(
+		addContextValsMiddleware(
+			weblogger.LoggingMiddleware(
+				mainRouter,
+				&weblogger.Config{
+					DefaultLogLevel:    weblogger.LOG_LEVEL_DEBUG,
+					FailedRequestLevel: weblogger.LOG_LEVEL_WARN,
+				},
+			),
+			map[any]any{
+				CONTEXT_KEY_SERVER:   &server,
+				CONTEXT_KEY_STORAGE:  store,
+				CONTEXT_KEY_AUTHBOSS: ab,
 			},
 		),
-		map[any]any{
-			CONTEXT_KEY_SERVER:   &server,
-			CONTEXT_KEY_STORAGE:  store,
-			CONTEXT_KEY_AUTHBOSS: ab,
-		},
 	)
-
 	return &server, nil
 }
 

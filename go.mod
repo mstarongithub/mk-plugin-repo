@@ -17,6 +17,7 @@ require (
 require (
 	cloud.google.com/go/compute v1.20.1 // indirect
 	github.com/alexedwards/argon2id v1.0.0 // indirect
+	github.com/rs/cors v1.11.0 // indirect
 )
 
 require (

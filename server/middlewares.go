@@ -10,6 +10,8 @@ type withContextValsMiddleware struct {
 	nextz http.Handler
 }
 
+type HandlerBuilder func(http.Handler) http.Handler
+
 func addContextValsMiddleware(next http.Handler, pairs map[any]any) *withContextValsMiddleware {
 	return &withContextValsMiddleware{
 		pairs: pairs,
