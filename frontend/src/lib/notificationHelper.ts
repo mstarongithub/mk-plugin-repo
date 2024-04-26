@@ -18,6 +18,7 @@ export const notify = {
             className
         });
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     promise: (promise: Promise<unknown>, msgs: { loading: Renderable, success: ValueOrFunction<Renderable, unknown>, error: ValueOrFunction<Renderable, any> }) => {
         return toast.promise(promise, msgs, {
             className
