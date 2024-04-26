@@ -29,6 +29,8 @@ RUN --mount=type=cache,target=/go-cache GOCACHE=/go-cache CGO_ENABLED=1 GOOS=lin
 # ---- Final slim container
 FROM gcr.io/distroless/base-debian12 AS release-stage
 WORKDIR /
+ARG log_level
+ENV env_log_level $log_level
 COPY --from=buildstage-go /server /server
 EXPOSE 8080
 CMD [ "/server" ]

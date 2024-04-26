@@ -56,9 +56,14 @@ func (storage *Storage) TryFindVersion(pluginID uint, versionName string) (*Plug
 		PluginID: pluginID,
 	}
 	// TODO: Add logging
-	result := storage.db.First(&version)
+	result := storage.db.Where("version = ?", versionName).
+		Where("plugin_id = ?", pluginID).
+		First(&version)
 	if result.RowsAffected < 1 {
-		// TODO: Add logging
+		logrus.WithFields(logrus.Fields{
+			"pluginID":    pluginID,
+			"versionName": versionName,
+		}).Debugln("Couldn't find plugin version")
 		return nil, ErrVersionNotFound
 	}
 	if result.Error != nil {
@@ -97,9 +102,18 @@ func (storage *Storage) NewVersion(
 ) error {
 	// First check if a version already exists
 	_, err := storage.TryFindVersion(forPluginID, versionName)
-	if !errors.Is(err, ErrVersionNotFound) {
-		// TODO: Add logging
+	if err == nil {
+		logrus.WithFields(logrus.Fields{
+			"pluginID":    forPluginID,
+			"versionName": versionName,
+		}).Debugln("Got no error while looking if a new version already exists. Assuming it exists already, aborting")
 		return ErrAlreadyExists
+	} else if !errors.Is(err, ErrVersionNotFound) {
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"pluginID":    forPluginID,
+			"versionName": versionName,
+		}).Debugln("Got err that is not ErrVersionNotFound from check if plugin version exists, aborting")
+		return err
 	}
 
 	// Then check if there actually is a plugin with the given ID
@@ -111,9 +125,10 @@ func (storage *Storage) NewVersion(
 
 	// Now make the new version, push it to the db
 	newVersion := PluginVersion{
-		PluginID: forPluginID,
-		Version:  versionName,
-		Code:     code,
+		PluginID:        forPluginID,
+		Version:         versionName,
+		Code:            code,
+		AiScriptVersion: aiscript_version,
 	}
 	// TODO: Add logging
 	result := storage.db.Create(&newVersion)
