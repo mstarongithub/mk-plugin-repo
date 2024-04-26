@@ -3,12 +3,14 @@
 	import Navbar from '$lib/Navbar.svelte';
 	import PluginCode from '$lib/PluginCode.svelte';
 	import PluginListing from '$lib/PluginListing.svelte';
+	import { getAIscriptVersion } from '$lib/aiScriptCodeParsers';
 	import { BASE_DIR } from '$lib/baseDir';
 	import { onMount } from 'svelte';
 	import toast from 'svelte-french-toast';
 
 	let selectedPluginData: Plugin | undefined = undefined;
 	let code: string;
+	let aiscriptVersion: string = "...";
 	let selectedVersion: string;
 	let pluginId: string = '';
 
@@ -50,7 +52,12 @@
 			if (response.ok) {
 				let data = await response.json();
 				code = data.code;
-				console.log(code);
+				aiscriptVersion = data.aiscript_version;
+
+				if (aiscriptVersion === "") {
+					aiscriptVersion = getAIscriptVersion(code) ?? "";
+				}
+				console.log(data);
 				//data.aiscript_version
 			} else {
 				let err = await response;
@@ -78,7 +85,7 @@
 		></PluginListing>
 	{/if}
 
-	<div class="card !w-10/12 !h-3/4 bg-base-100 shadow-xl overflow-clip p-4">
+	<div class="card flex flex-row items-center justify-between !w-10/12 !h-3/4 bg-base-100 shadow-xl overflow-clip p-4">
 		<select
 			class="select select-bordered w-full max-w-40"
 			on:change={showCode}
@@ -91,6 +98,10 @@
 				{/each}
 			{/if}
 		</select>
+
+		<!-- <div class = "align-middle h-full"> -->
+		<p class="text-center ">For AIscript @{aiscriptVersion}</p>
+		<!-- </div> -->
 	</div>
 
 	<div class="card !w-10/12 !h-3/4 bg-base-100 shadow-xl overflow-clip">
