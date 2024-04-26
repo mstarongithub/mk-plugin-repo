@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import Navbar from '$lib/Navbar.svelte';
-	import { getAIscriptVersion, getPluginDesc, getPluginName, getPluginVersion } from '$lib/aiScriptCodeParsers';
+	import {
+		getAIscriptVersion,
+		getPluginDesc,
+		getPluginName,
+		getPluginVersion
+	} from '$lib/aiScriptCodeParsers';
 	import { BASE_DIR } from '$lib/baseDir';
 	import TagField from '$lib/components/TagField.svelte';
 	import toast from 'svelte-french-toast';
@@ -41,7 +46,6 @@
 		}
 	};
 
-
 	let codeEdited = () => {
 		const { code, name, summary_short, summary_long } = newPluginData;
 
@@ -56,7 +60,6 @@
 			}
 		}
 	};
-
 
 	function parseVersionFromCode(code: string) {
 		const aiscriptVersion = getAIscriptVersion(code);
@@ -103,17 +106,16 @@
 		});
 
 		if (response.ok) {
-
-			toast.success("Plugin submitted", {
+			toast.success('Plugin submitted', {
 				className: '!btn'
 			});
 
-			goto("/");
+			goto('/');
 		} else {
 			let err = await response;
 			console.error(err);
-			
-			toast.error("Server Error", {
+
+			toast.error('Server Error', {
 				className: '!btn'
 			});
 		}
@@ -122,9 +124,10 @@
 
 <Navbar></Navbar>
 
-<div class="flex justify-center items-center">
-	<!-- grid-cols-3 -->
-	<div class="flex lg:w-1/3">
+<div class="flex flex-col gap-2 justify-center items-center">
+	<div
+		class="card flex flex-row items-center justify-between !w-10/12 !h-3/4 bg-base-100 shadow-xl overflow-clip p-4"
+	>
 		<div class="card items-center w-full space-y-3">
 			<input
 				type="text"

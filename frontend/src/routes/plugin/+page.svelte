@@ -3,14 +3,21 @@
 	import Navbar from '$lib/Navbar.svelte';
 	import PluginCode from '$lib/PluginCode.svelte';
 	import PluginListing from '$lib/PluginListing.svelte';
-	import { getAIscriptVersion } from '$lib/aiScriptCodeParsers';
+	import {
+		getAIscriptPermissions,
+		getAIscriptVersion,
+		getCodeWarnings
+	} from '$lib/aiScriptCodeParsers';
 	import { BASE_DIR } from '$lib/baseDir';
 	import { onMount } from 'svelte';
 	import toast from 'svelte-french-toast';
+	import Icon from '@iconify/svelte';
 
 	let selectedPluginData: Plugin | undefined = undefined;
 	let code: string;
-	let aiscriptVersion: string = "...";
+	let aiscriptVersion: string = '...';
+	let permissions: string[] = [];
+	let warnings = '';
 	let selectedVersion: string;
 	let pluginId: string = '';
 
@@ -54,11 +61,14 @@
 				code = data.code;
 				aiscriptVersion = data.aiscript_version;
 
-				if (aiscriptVersion === "") {
-					aiscriptVersion = getAIscriptVersion(code) ?? "";
+				if (aiscriptVersion === '') {
+					aiscriptVersion = getAIscriptVersion(code) ?? '';
 				}
-				console.log(data);
-				//data.aiscript_version
+
+				permissions = getAIscriptPermissions(code) ?? [];
+
+				warnings = (getCodeWarnings(code) ?? []).join(', ');
+				console.log(permissions);
 			} else {
 				let err = await response;
 				console.error(err);
@@ -67,7 +77,6 @@
 					className: '!btn'
 				});
 			}
-
 		}
 	};
 </script>
@@ -85,26 +94,47 @@
 		></PluginListing>
 	{/if}
 
-	<div class="card flex flex-row items-center justify-between !w-10/12 !h-3/4 bg-base-100 shadow-xl overflow-clip p-4">
-		<select
-			class="select select-bordered w-full max-w-40"
-			on:change={showCode}
-			bind:value={selectedVersion}
-		>
-			<!-- <option disabled selected>Who shot first?</option> -->
-			{#if selectedPluginData}
-				{#each (selectedPluginData.all_versions) as version}
-					<option selected={version == selectedPluginData.current_version} value={version}>V{version}</option>
-				{/each}
-			{/if}
-		</select>
+	<div
+		class="card flex flex-row items-center justify-between !w-10/12 !h-3/4 bg-base-100 shadow-xl overflow-clip p-4"
+	>
+		<div class="flex flex-row items-center">
+			<select
+				class="select select-bordered w-full max-w-40"
+				on:change={showCode}
+				bind:value={selectedVersion}
+			>
+				<!-- <option disabled selected>Who shot first?</option> -->
+				{#if selectedPluginData}
+					{#each selectedPluginData.all_versions as version}
+						<option selected={version == selectedPluginData.current_version} value={version}
+							>V{version}</option
+						>
+					{/each}
+				{/if}
+			</select>
+			<div class="pl-8 flex flex-row items-center gap-3">
+				Permissions:
+				{#each permissions as permission}
+				<div class="badge badge-outline">{permission}</div>
+			{/each}
+			</div>
+		</div>
 
 		<!-- <div class = "align-middle h-full"> -->
-		<p class="text-center ">For AIscript @{aiscriptVersion}</p>
+		<p class="text-center">For AIscript @{aiscriptVersion}</p>
 		<!-- </div> -->
 	</div>
 
+	{#if warnings.length > 0}
+		<div
+			class="alert alert-warning flex flex-row items-center !w-10/12 !h-3/4 shadow-xl overflow-clip p-4"
+		>
+			<Icon icon="fluent:warning-28-filled" width={'2em'} height={'2em'} />
+			<p>{warnings}</p>
+		</div>
+	{/if}
+
 	<div class="card !w-10/12 !h-3/4 bg-base-100 shadow-xl overflow-clip">
-		<PluginCode bind:code={code}></PluginCode>
+		<PluginCode bind:code></PluginCode>
 	</div>
 </div>
