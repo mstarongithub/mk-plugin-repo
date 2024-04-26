@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import Navbar from '$lib/Navbar.svelte';
+	import { getAIscriptVersion, getPluginDesc, getPluginName, getPluginVersion } from '$lib/aiScriptCodeParsers';
 	import { BASE_DIR } from '$lib/baseDir';
 	import TagField from '$lib/components/TagField.svelte';
 	import toast from 'svelte-french-toast';
@@ -40,23 +41,6 @@
 		}
 	};
 
-	function getPluginName(str: string): string | null {
-		const regex = /###\s*{\s*.*name:\s*"([^"]*)".*\s*}/s;
-		const match = str.match(regex);
-		if (match && match.length > 1) {
-			return match[1].trim();
-		}
-		return null;
-	}
-
-	function getPluginDesc(str: string): string | null {
-		const regex = /###\s*{\s*.*description:\s*"([^"]*)".*\s*}/s;
-		const match = str.match(regex);
-		if (match && match.length > 1) {
-			return match[1].trim();
-		}
-		return null;
-	}
 
 	let codeEdited = () => {
 		const { code, name, summary_short, summary_long } = newPluginData;
@@ -73,23 +57,6 @@
 		}
 	};
 
-	function getAIscriptVersion(str: string): string | null {
-		const regex = /^\/\/\/ @ (.*)/m;
-		const match = str.match(regex);
-		if (match && match.length > 1) {
-			return match[1].trim();
-		}
-		return null;
-	}
-
-	function getPluginVersion(str: string): string | null {
-		const regex = /###\s*{\s*.*version:\s*"([^"]*)".*\s*}/s;
-		const match = str.match(regex);
-		if (match && match.length > 1) {
-			return match[1].trim();
-		}
-		return null;
-	}
 
 	function parseVersionFromCode(code: string) {
 		const aiscriptVersion = getAIscriptVersion(code);
