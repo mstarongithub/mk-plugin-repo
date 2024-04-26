@@ -2,8 +2,8 @@ package main
 
 import (
 	"embed"
-	"flag"
 	"fmt"
+	"os"
 
 	"github.com/sirupsen/logrus"
 	_ "github.com/volatiletech/authboss-renderer"
@@ -23,14 +23,8 @@ const DB_DEFAULT_FILE = "db.sqlite"
 //go:embed frontend/build frontend/build/_app/*
 var frontendFS embed.FS
 
-var level = flag.String(
-	"loglevel",
-	"info",
-	"Set the log level of the app to one of \"debug\", \"info\", \"warn\", \"error\"",
-)
-
 func main() {
-	setLogLevelFromArgs()
+	setLogLevelFromEnv()
 	_, err := config.ReadConfig(nil)
 	if err != nil {
 		logrus.WithError(err).Warnln("Err reading config, using default")
@@ -66,10 +60,10 @@ func main() {
 	panic(httpServer.Run(":8080"))
 }
 
-func setLogLevelFromArgs() {
-	flag.Parse()
-	fmt.Printf("Log level received from env: %s\n", *level)
-	switch *level {
+func setLogLevelFromEnv() {
+	level := os.Getenv("MK_REPO_LOG_LEVEL")
+	fmt.Printf("Log level received from env: %s\n", level)
+	switch level {
 	case "debug":
 		logrus.SetLevel(logrus.DebugLevel)
 	case "info":
