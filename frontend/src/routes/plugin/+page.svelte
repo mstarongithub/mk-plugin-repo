@@ -7,17 +7,16 @@
 	import { onMount } from 'svelte';
 	import toast from 'svelte-french-toast';
 
-
-	let selectedPluginData : Plugin | undefined = undefined;
+	let selectedPluginData: Plugin | undefined = undefined;
+	let code: string;
+	let selectedVersion: string;
+	let pluginId: string = '';
 
 	onMount(async () => {
 		let params = new URLSearchParams(location.search);
-		let pluginId = params.get('id');
+		pluginId = params.get('id') ?? '';
 		if (pluginId) {
 			let response = await fetch(`${BASE_DIR}/api/v1/plugins/${pluginId}`, {
-				// body: JSON.stringify({
-
-				// }),
 				headers: {
 					'Content-Type': 'application/json'
 				},
@@ -26,8 +25,8 @@
 
 			if (response.ok) {
 				selectedPluginData = await response.json();
-				console.log(selectedPluginData)
-
+				selectedVersion = selectedPluginData?.current_version ?? '';
+				showCode();
 			} else {
 				let err = await response;
 				console.error(err);
@@ -38,6 +37,32 @@
 			}
 		}
 	});
+
+	const showCode = async () => {
+		if (pluginId) {
+			let response = await fetch(`${BASE_DIR}/api/v1/plugins/${pluginId}/${selectedVersion}`, {
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				method: 'GET'
+			});
+
+			if (response.ok) {
+				let data = await response.json();
+				code = data.code;
+				console.log(code);
+				//data.aiscript_version
+			} else {
+				let err = await response;
+				console.error(err);
+
+				toast.error('Server Error', {
+					className: '!btn'
+				});
+			}
+
+		}
+	};
 </script>
 
 <Navbar></Navbar>
@@ -45,9 +70,30 @@
 <div class="flex flex-col gap-2 justify-center items-center">
 	<!-- grid-cols-3 -->
 	{#if selectedPluginData}
-		<PluginListing className="lg:card-side !w-10/12 !h-3/4" id={-1} pluginName={selectedPluginData.name} shortDesc={selectedPluginData.summary_long} tags={selectedPluginData.tags}></PluginListing>
+		<PluginListing
+			className="lg:card-side !w-10/12 !h-3/4"
+			pluginName={selectedPluginData.name}
+			shortDesc={selectedPluginData.summary_long}
+			tags={selectedPluginData.tags}
+		></PluginListing>
 	{/if}
+
+	<div class="card !w-10/12 !h-3/4 bg-base-100 shadow-xl overflow-clip p-4">
+		<select
+			class="select select-bordered w-full max-w-40"
+			on:change={showCode}
+			bind:value={selectedVersion}
+		>
+			<!-- <option disabled selected>Who shot first?</option> -->
+			{#if selectedPluginData}
+				{#each (selectedPluginData.all_versions) as version}
+					<option selected={version == selectedPluginData.current_version} value={version}>V{version}</option>
+				{/each}
+			{/if}
+		</select>
+	</div>
+
 	<div class="card !w-10/12 !h-3/4 bg-base-100 shadow-xl overflow-clip">
-		<PluginCode></PluginCode>
+		<PluginCode bind:code={code}></PluginCode>
 	</div>
 </div>

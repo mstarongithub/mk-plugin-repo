@@ -5,7 +5,7 @@
 	import { a11yDark, darktooth, githubDark, icyDark } from 'svelte-highlight/styles';
 	import github from 'svelte-highlight/styles/github';
 
-	export const code = `const add = (a: number, b: number) => a + b;\nconst add = (a: number, b: number) => a + b;`;
+	export let code = `//loading...`;
 
 	let modal: HTMLDialogElement;
 
@@ -33,7 +33,7 @@
 </svelte:head>
 
 <div>
-	<Highlight language={typescript} {code} let:highlighted>
+	<Highlight language={typescript} bind:code={code} let:highlighted>
 		<LineNumbers {highlighted} hideBorder wrapLines />
 	</Highlight>
 	<div class="z-40 absolute top-0 right-0 m-2">

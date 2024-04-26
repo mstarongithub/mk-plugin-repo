@@ -6,7 +6,6 @@
 	import { BASE_DIR } from '$lib/baseDir';
 	import toast from 'svelte-french-toast';
 
-
 	let plugins: Plugin[] = [];
 
 	async function fetchListings() {
@@ -18,9 +17,9 @@
 		});
 
 		if (response.ok) {
-			const newLoadedPlugins : Plugin[] = await response.json();
-      
-    		plugins = [...plugins, ...newLoadedPlugins];
+			const newLoadedPlugins: Plugin[] = await response.json();
+
+			plugins = [...plugins, ...newLoadedPlugins];
 
 			console.log(newLoadedPlugins);
 		} else {
@@ -44,8 +43,14 @@
 <div class="flex justify-center items-center">
 	<!-- grid-cols-3 -->
 	<div class="w-10/12 h-screen flex flex-wrap gap-2">
-    {#each plugins as plugin}
-  		<PluginListing pluginName={plugin.name} shortDesc={plugin.summary_short} tags={plugin.tags} id={plugin.id}></PluginListing>
-    {/each}
+		{#each plugins as plugin}
+			<a href="/plugin?id={plugin.id}">
+				<PluginListing
+					pluginName={plugin.name}
+					shortDesc={plugin.summary_short}
+					tags={plugin.tags}
+				></PluginListing>
+			</a>
+		{/each}
 	</div>
 </div>
