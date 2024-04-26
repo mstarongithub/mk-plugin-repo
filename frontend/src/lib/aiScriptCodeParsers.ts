@@ -27,7 +27,7 @@ const PERMISSION_WARNINGS = {
     'read:admin': 'This plugin can read admin data',
     'write:admin': 'This plugin can write admin data',
 
-    'write:': "This plugin can write to your account",
+    // 'write:': "This plugin can write to your account",
 }
 
 export function getCodeWarnings(str : string) : string[] | null {
