@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"flag"
+	"fmt"
 
 	"github.com/sirupsen/logrus"
 	_ "github.com/volatiletech/authboss-renderer"
@@ -67,6 +68,7 @@ func main() {
 
 func setLogLevelFromArgs() {
 	flag.Parse()
+	fmt.Printf("Log level received from env: %s\n", *level)
 	switch *level {
 	case "debug":
 		logrus.SetLevel(logrus.DebugLevel)
