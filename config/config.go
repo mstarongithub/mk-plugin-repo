@@ -67,3 +67,14 @@ func ReadFromFileName(fileName string, writeToGlobal bool) (config Config, err e
 	}
 	return config, nil
 }
+
+func SetGlobalToDefault() {
+	GlobalConfig = &Config{
+		SslConfig: ConfigSSL{
+			HandleSslInApp: false,
+		},
+		General: ConfigGeneral{
+			RootUrl: "localhost:8080",
+		},
+	}
+}

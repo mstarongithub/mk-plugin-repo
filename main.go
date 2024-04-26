@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"flag"
+	"fmt"
 
 	"github.com/sirupsen/logrus"
 	_ "github.com/volatiletech/authboss-renderer"
@@ -32,7 +33,8 @@ func main() {
 	setLogLevelFromArgs()
 	_, err := config.ReadConfig(nil)
 	if err != nil {
-		logrus.WithError(err).Warnln("Err reading config")
+		logrus.WithError(err).Warnln("Err reading config, using default")
+		config.SetGlobalToDefault()
 	}
 
 	err = util.CreateFileIfNotExists(DB_DEFAULT_FILE)
@@ -66,6 +68,7 @@ func main() {
 
 func setLogLevelFromArgs() {
 	flag.Parse()
+	fmt.Printf("Log level received from env: %s\n", *level)
 	switch *level {
 	case "debug":
 		logrus.SetLevel(logrus.DebugLevel)
