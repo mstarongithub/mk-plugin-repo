@@ -105,8 +105,16 @@ func (storage *Storage) NewPlugin(
 		return nil, ErrAccountNotApproved
 	}
 
+	// Check if version already exists
+	placeholder := Plugin{}
+	storage.db.First(&placeholder, "name = ?", name)
+	if placeholder.ID != 0 {
+		logrus.WithField("plugin", plugin).Debugln("new plugin already exists")
+		return nil, ErrAlreadyExists
+	}
+
 	logrus.WithField("plugin", plugin).Debugln("Inserting new plugin")
-	res := storage.db.Debug().Create(&plugin)
+	res := storage.db.Create(&plugin)
 	if res.RowsAffected == 0 {
 		return nil, fmt.Errorf("rows affected during plugin creation were 0: %w", err)
 	} else if res.Error != nil {

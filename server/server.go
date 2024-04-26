@@ -8,7 +8,9 @@ import (
 	"github.com/rs/cors"
 	"github.com/sirupsen/logrus"
 	"github.com/volatiletech/authboss/v3"
-	"gitlab.com/mstarongitlab/weblogger"
+	_ "github.com/volatiletech/authboss/v3/confirm"
+	_ "github.com/volatiletech/authboss/v3/lock"
+	"github.com/volatiletech/authboss/v3/remember"
 
 	"github.com/mstarongithub/mk-plugin-repo/storage"
 )
@@ -23,9 +25,10 @@ type Server struct {
 type ServerContextKey string
 
 const (
-	CONTEXT_KEY_SERVER   = ServerContextKey("server")
-	CONTEXT_KEY_STORAGE  = ServerContextKey("storage")
-	CONTEXT_KEY_AUTHBOSS = ServerContextKey("authboss")
+	CONTEXT_KEY_SERVER     = ServerContextKey("server")
+	CONTEXT_KEY_STORAGE    = ServerContextKey("storage")
+	CONTEXT_KEY_AUTHBOSS   = ServerContextKey("authboss")
+	CONTEXT_KEY_CSRF_TOKEN = ServerContextKey("csrf_token")
 )
 
 func NewServer(
@@ -48,22 +51,23 @@ func NewServer(
 		authboss:   ab,
 	}
 
-	server.handler = cors.AllowAll().Handler(
-		addContextValsMiddleware(
-			weblogger.LoggingMiddleware(
-				mainRouter,
-				&weblogger.Config{
-					DefaultLogLevel:    weblogger.LOG_LEVEL_DEBUG,
-					FailedRequestLevel: weblogger.LOG_LEVEL_WARN,
-				},
-			),
+	server.handler = ChainMiddlewares(
+		mainRouter,
+		ContextValsMiddleware(
 			map[any]any{
 				CONTEXT_KEY_SERVER:   &server,
 				CONTEXT_KEY_STORAGE:  store,
 				CONTEXT_KEY_AUTHBOSS: ab,
 			},
 		),
+		cors.AllowAll().Handler,
+		ab.LoadClientStateMiddleware,
+		remember.Middleware(ab),
+		// NosurfTokenInsertMiddleware,
+		// NosurfCheckWrapper,
+		WebLoggerWrapper,
 	)
+
 	return &server, nil
 }
 
@@ -95,26 +99,26 @@ func (s *Server) Run(addr string) error {
 }
 
 // NOTE: Error return value unused currently and can safely be ignored
-func buildApiRouter(_ *authboss.Authboss) (http.Handler, error) {
+func buildApiRouter(ab *authboss.Authboss) (http.Handler, error) {
 	router := http.NewServeMux()
 
 	// router.Handle("/auth", ab.Core.Router)
-	router.Handle("/v1/", http.StripPrefix("/v1", buildV1Router()))
+	router.Handle("/v1/", http.StripPrefix("/v1", buildV1Router(ab)))
 	return router, nil
 }
 
-func buildV1Router() http.Handler {
+func buildV1Router(ab *authboss.Authboss) http.Handler {
 	router := http.NewServeMux()
 
 	router.HandleFunc("GET /plugins", getPluginList)
 	router.HandleFunc("GET /plugins/{pluginId}", getSpecificPlugin)
 	router.HandleFunc("GET /plugins/{pluginId}/{versionName}", getVersion)
-	router.Handle("/", buildV1RestrictedRouter())
+	router.Handle("/", buildV1RestrictedRouter(ab))
 
 	return router
 }
 
-func buildV1RestrictedRouter() http.Handler {
+func buildV1RestrictedRouter(ab *authboss.Authboss) http.Handler {
 	router := http.NewServeMux()
 
 	router.HandleFunc("POST /plugins", addNewPlugin)
@@ -122,6 +126,13 @@ func buildV1RestrictedRouter() http.Handler {
 	router.HandleFunc("POST /plugins/{pluginId}", newVersion)
 	router.HandleFunc("DELETE /plugins/{pluginId}", deleteSpecificPlugin)
 	router.HandleFunc("DELETE /plugins/[pluginId]/{versionName}", hideVersion)
+
+	// handler := ChainMiddlewares(
+	// 	router,
+	// 	authboss.Middleware2(ab, authboss.RequireNone, authboss.RespondUnauthorized),
+	// 	lock.Middleware(ab),
+	// 	confirm.Middleware(ab),
+	// )
 
 	return router
 }

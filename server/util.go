@@ -46,7 +46,7 @@ func dbPluginToApiPlugin(plugin *storage.Plugin) Plugin {
 		SummaryShort:   plugin.SummaryShort,
 		SummaryLong:    plugin.SummaryLong,
 		CurrentVersion: plugin.CurrentVersion,
-		AllVersions:    append(plugin.PreviousVersions, plugin.CurrentVersion),
+		AllVersions:    plugin.PreviousVersions,
 		Tags:           plugin.Tags,
 		AuthorID:       plugin.AuthorID,
 	}
