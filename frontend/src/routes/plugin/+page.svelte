@@ -83,7 +83,7 @@
 
 <Navbar></Navbar>
 
-<div class="flex flex-col gap-2 justify-center items-center">
+<div class="flex flex-col gap-4 justify-center items-center">
 	<!-- grid-cols-3 -->
 	{#if selectedPluginData}
 		<PluginListing
@@ -91,11 +91,12 @@
 			pluginName={selectedPluginData.name}
 			shortDesc={selectedPluginData.summary_long}
 			tags={selectedPluginData.tags}
+			showExtraOptions={true}
 		></PluginListing>
 	{/if}
 
 	<div
-		class="card flex flex-row items-center justify-between !w-10/12 !h-3/4 bg-base-100 shadow-xl overflow-clip p-4"
+		class="card flex flex-row items-center justify-between !w-10/12 !h-3/4 bg-base-200 shadow-xl overflow-clip p-4"
 	>
 		<div class="flex flex-row items-center">
 			<select
@@ -136,7 +137,7 @@
 		</div>
 	{/if}
 
-	<div class="card !w-10/12 !h-3/4 bg-base-100 shadow-xl overflow-clip">
+	<div class="card !w-10/12 !h-3/4 bg-base-200 shadow-xl overflow-clip">
 		<PluginCode bind:code></PluginCode>
 	</div>
 </div>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	let cachedTags = ['Testing', 'One', 'Two', 'Three', 'Fun', 'Tool'] as string[];
+	let cachedTags = ['Fun', 'Tool'] as string[];
 	export let tags: string[] = [];
 
 	let hasFocus = false;

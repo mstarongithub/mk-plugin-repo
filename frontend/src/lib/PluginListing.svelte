@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+
 	export let pluginName: string = 'Pronoun Plugin';
 	export let shortDesc: string = 'Easily see everyones pronouns when you are looking at a post';
 	export let tags: string[] = ['Plugin', 'Quality Of Life'];
@@ -8,18 +10,31 @@
 	};
 	export let isNew: boolean = false;
 
+	export let showExtraOptions: boolean = false;
+
 	export let className = '';
 </script>
 
-<div class="card w-96 bg-base-100 shadow-xl {className}">
+<div class="card w-96 bg-base-200 shadow-xl {className}">
 	<figure>
 		<img src={imageData.imageURL} alt={imageData.alt} />
 	</figure>
 	<div class="card-body">
 		<h2 class="card-title">
-			{pluginName}
-			{#if isNew}
-				<div class="badge badge-secondary">NEW</div>
+			<p>
+				{pluginName}
+				{#if isNew}
+					<div class="badge badge-secondary">NEW</div>
+				{/if}
+			</p>
+			
+			{#if showExtraOptions}
+				<details class="dropdown dropdown-end">
+					<summary class="m-1 btn"><Icon icon="charm:menu-meatball" /></summary>
+					<ul class="p-2 shadow menu dropdown-content z-[1] bg-base-100 rounded-box w-52">
+						<li><button>Edit</button></li>
+					</ul>
+				</details>
 			{/if}
 		</h2>
 		<p>{shortDesc}</p>
