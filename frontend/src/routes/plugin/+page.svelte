@@ -112,12 +112,14 @@
 					{/each}
 				{/if}
 			</select>
-			<div class="pl-8 flex flex-row items-center gap-3">
-				Permissions:
-				{#each permissions as permission}
-				<div class="badge badge-outline">{permission}</div>
-			{/each}
-			</div>
+			{#if permissions.length > 0}
+				<div class="pl-8 flex flex-row items-center gap-3">
+					Permissions:
+					{#each permissions as permission}
+						<div class="badge badge-outline">{permission}</div>
+					{/each}
+				</div>
+			{/if}
 		</div>
 
 		<!-- <div class = "align-middle h-full"> -->
