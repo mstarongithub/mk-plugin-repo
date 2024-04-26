@@ -1,9 +1,9 @@
 <script lang="ts">
-	import toast from 'svelte-french-toast';
 	import Highlight, { LineNumbers } from 'svelte-highlight';
 	import typescript from 'svelte-highlight/languages/typescript';
 	import { a11yDark, darktooth, githubDark, icyDark } from 'svelte-highlight/styles';
 	import github from 'svelte-highlight/styles/github';
+	import { notify } from './notificationHelper';
 
 	export let code = `//loading...`;
 
@@ -11,19 +11,14 @@
 
 	const copy = async () => {
 		if (!navigator.clipboard) {
-			toast.error('Copy failed.', {
-				className: '!btn'
-			});
+			notify.error('Copy failed.');
 		}
 		try {
 			await navigator.clipboard.writeText(code);
-			toast.success('Copied Plugin to clipboad', {
-				className: '!btn'
-			});
+			
+			notify.success('Copied Plugin to clipboad');
 		} catch (error) {
-			toast.error('Copy failed.', {
-				className: '!btn'
-			});
+			notify.error('Copy failed.');
 		}
 	};
 </script>

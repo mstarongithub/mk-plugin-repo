@@ -9,7 +9,7 @@
 	} from '$lib/aiScriptCodeParsers';
 	import { BASE_DIR } from '$lib/baseDir';
 	import TagField from '$lib/components/TagField.svelte';
-	import toast from 'svelte-french-toast';
+	import { notify } from '$lib/notificationHelper';
 
 	interface PluginData {
 		name: string;
@@ -35,14 +35,10 @@
 
 	const ERRORS = {
 		INVALID_CODE: () => {
-			return toast.error('Please insert valid AIscript code', {
-				className: '!btn'
-			});
+			return notify.error('Please insert valid AIscript code');
 		},
 		MISSING_FIELDS: () => {
-			return toast.error('Please fill out all the fields', {
-				className: '!btn'
-			});
+			return notify.error('Please fill out all the fields'); 
 		}
 	};
 
@@ -106,18 +102,14 @@
 		});
 
 		if (response.ok) {
-			toast.success('Plugin submitted', {
-				className: '!btn'
-			});
+			notify.success('Plugin submitted');
 
 			goto('/');
 		} else {
 			let err = await response;
 			console.error(err);
 
-			toast.error('Server Error', {
-				className: '!btn'
-			});
+			notify.error('Server Error');
 		}
 	};
 </script>

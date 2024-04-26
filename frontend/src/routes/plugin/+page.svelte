@@ -10,8 +10,8 @@
 	} from '$lib/aiScriptCodeParsers';
 	import { BASE_DIR } from '$lib/baseDir';
 	import { onMount } from 'svelte';
-	import toast from 'svelte-french-toast';
 	import Icon from '@iconify/svelte';
+	import { notify } from '$lib/notificationHelper';
 
 	let selectedPluginData: Plugin | undefined = undefined;
 	let code: string;
@@ -39,10 +39,7 @@
 			} else {
 				let err = await response;
 				console.error(err);
-
-				toast.error('Server Error', {
-					className: '!btn'
-				});
+				notify.error('Server Error');
 			}
 		}
 	});
@@ -72,10 +69,7 @@
 			} else {
 				let err = await response;
 				console.error(err);
-
-				toast.error('Server Error', {
-					className: '!btn'
-				});
+				notify.error('Server Error');
 			}
 		}
 	};

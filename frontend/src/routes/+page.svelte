@@ -4,7 +4,7 @@
 	import PluginListing from '$lib/PluginListing.svelte';
 	import ThemeSwitcher from '$lib/ThemeSwitcher.svelte';
 	import { BASE_DIR } from '$lib/baseDir';
-	import toast from 'svelte-french-toast';
+	import { notify } from '$lib/notificationHelper';
 
 	let plugins: Plugin[] = [];
 
@@ -20,15 +20,12 @@
 			const newLoadedPlugins: Plugin[] = await response.json();
 
 			plugins = [...plugins, ...newLoadedPlugins];
-
-			console.log(newLoadedPlugins);
 		} else {
 			let err = await response;
 			console.error(err);
 
-			toast.error('Unable to load plugins', {
-				className: '!btn'
-			});
+			notify.error('Unable to load plugins');
+
 		}
 	}
 	fetchListings();
