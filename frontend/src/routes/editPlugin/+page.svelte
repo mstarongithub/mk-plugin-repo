@@ -76,6 +76,7 @@
 			notify.success('Saved');
 		} else {
 			let err = await response;
+            console.log(newCode);
 			console.error(err);
 			notify.error('Server Error');
 		}
