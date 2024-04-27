@@ -12,7 +12,8 @@
 
 	let TAB_IDS = {
 		BASIC: 0,
-		UPDATE_PLUGIN: 1
+		UPDATE_PLUGIN: 1,
+        MANAGE_HISTORY: 2,
 	};
 
 	let pluginId: string = '';
@@ -156,6 +157,14 @@
 						on:click={() => {
 							tab = TAB_IDS.UPDATE_PLUGIN;
 						}}>Update {metadata.type}</button
+					>
+				</li>
+                <li>
+					<button
+						class="capitalize"
+						on:click={() => {
+							tab = TAB_IDS.MANAGE_HISTORY;
+						}}>Manage Update History</button
 					>
 				</li>
 			</ul>

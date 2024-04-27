@@ -107,7 +107,7 @@
 		</div>
 	{/if}
 
-	<div class="card !w-10/12 !h-3/4 bg-base-200 shadow-xl overflow-clip">
+	<div class="card !w-10/12 !h-3/4 bg-base-200 shadow-xl overflow-clip mb-10">
 		<PluginCode bind:code></PluginCode>
 	</div>
 </div>
