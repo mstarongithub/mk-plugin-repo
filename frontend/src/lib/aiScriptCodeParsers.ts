@@ -52,7 +52,6 @@ export function getCodeWarnings(str : string) : string[] | null {
     return warnings;
 }
 
-
 export function getPluginVersion(str: string): string | null {
     const regex = /###\s*{\s*.*version:\s*"([^"]*)".*\s*}/s;
     const match = str.match(regex);
