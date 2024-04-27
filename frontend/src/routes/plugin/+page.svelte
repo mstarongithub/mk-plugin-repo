@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Plugin } from '$lib';
 	import Navbar from '$lib/Navbar.svelte';
-	import PluginCode from '$lib/PluginCode.svelte';
+	import PluginCode from '$lib/components/PluginCode.svelte';
 	import PluginListing from '$lib/PluginListing.svelte';
 	import {
 		getAIscriptPermissions,

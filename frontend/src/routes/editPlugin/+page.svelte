@@ -3,9 +3,11 @@
 	import Navbar from '$lib/Navbar.svelte';
 	import { getAIscriptVersion, getPluginVersion } from '$lib/aiScriptCodeParsers';
 	import { BASE_DIR } from '$lib/baseDir';
+	import PluginCode from '$lib/components/PluginCode.svelte';
 	import SettingsField from '$lib/components/SettingsField.svelte';
 	import TagField from '$lib/components/TagField.svelte';
 	import { notify } from '$lib/notificationHelper';
+	import Icon from '@iconify/svelte';
 	import { onMount } from 'svelte';
 
 	let tab = 0;
@@ -13,7 +15,7 @@
 	let TAB_IDS = {
 		BASIC: 0,
 		UPDATE_PLUGIN: 1,
-        MANAGE_HISTORY: 2,
+		MANAGE_HISTORY: 2
 	};
 
 	let pluginId: string = '';
@@ -41,6 +43,8 @@
 		aiscript_version: '',
 		version_name: ''
 	};
+
+	let versionHistory: string[] = [];
 
 	//   - `code`: `string` - The full code of this version
 	//   - `aiscript_version`: `string` - The version of AIScript this plugin is intended for
@@ -77,7 +81,7 @@
 			notify.success('Saved');
 		} else {
 			let err = await response;
-            console.log(newCode);
+			console.log(newCode);
 			console.error(err);
 			notify.error('Server Error');
 		}
@@ -89,13 +93,30 @@
 	};
 
 	async function loadSelectedVersion(version: string) {
-        let response = await fetch(`${BASE_DIR}/api/v1/plugins/${pluginId}/${version}`, {
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				method: 'GET'
-			});
+		let response = await fetch(`${BASE_DIR}/api/v1/plugins/${pluginId}/${version}`, {
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			method: 'GET'
+		});
 		if (response.ok) {
+			return await response.json();
+		} else {
+			let err = await response;
+			console.error(err);
+			notify.error('Server Error');
+		}
+	}
+
+	async function deleteSelectedVersion(version: string) {
+		let response = await fetch(`${BASE_DIR}/api/v1/plugins/${pluginId}/${version}`, {
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			method: 'DELETE'
+		});
+		if (response.ok) {
+			notify.success(`Deleted version ${version}`);
 			return await response.json();
 		} else {
 			let err = await response;
@@ -123,11 +144,15 @@
 				metadata.tags = selectedPluginData.tags;
 				metadata.type = selectedPluginData.type;
 
+				versionHistory = selectedPluginData.all_versions;
 				newCode.version_name = selectedPluginData.current_version;
 
-				newCode = { ...newCode, ...await loadSelectedVersion(selectedPluginData.current_version) };
-                
-                updateVersionInfo();
+				newCode = {
+					...newCode,
+					...(await loadSelectedVersion(selectedPluginData.current_version))
+				};
+
+				updateVersionInfo();
 			} else {
 				let err = await response;
 				console.error(err);
@@ -159,7 +184,7 @@
 						}}>Update {metadata.type}</button
 					>
 				</li>
-                <li>
+				<li>
 					<button
 						class="capitalize"
 						on:click={() => {
@@ -245,6 +270,45 @@
 
 				<div class="card-actions justify-center">
 					<button class="btn btn-primary" on:click={publishCodeVersion}>Save</button>
+				</div>
+			</div>
+		{:else if tab === TAB_IDS.MANAGE_HISTORY}
+			<div class="card-body p-10 grow">
+				<div class="overflow-x-auto">
+					<table class="table table-zebra">
+						<!-- head -->
+						<thead>
+							<tr>
+								<!-- <th></th> -->
+								<th>Version</th>
+								<!-- <th>Job</th>
+                          <th>Favorite Color</th> -->
+							</tr>
+						</thead>
+						<tbody>
+							<!-- row 1 -->
+							{#each versionHistory.reverse() as versionHistoryEntry}
+								<!-- viewUpdateHistoryCode -->
+								<tr class="content-between w-full">
+									<th>{versionHistoryEntry}</th>
+									<td class="flex justify-end">
+										<button class="btn btn-primary" on:click={()=>{
+                                            notify.error('Not implemented yet');
+                                        }}> View Code </button>
+
+										<button
+											class="btn"
+											on:click={() => {
+												deleteSelectedVersion(versionHistoryEntry);
+											}}
+										>
+											<Icon icon="mdi:delete-outline" width={'2em'} height={'2em'} />
+										</button></td
+									>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
 				</div>
 			</div>
 		{/if}

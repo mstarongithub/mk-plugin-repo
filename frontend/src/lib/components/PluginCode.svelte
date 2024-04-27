@@ -3,7 +3,7 @@
 	import typescript from 'svelte-highlight/languages/typescript';
 	import { a11yDark, darktooth, githubDark, icyDark } from 'svelte-highlight/styles';
 	import github from 'svelte-highlight/styles/github';
-	import { notify } from './notificationHelper';
+	import { notify } from '../notificationHelper';
 
 	export let code = `//loading...`;
 
