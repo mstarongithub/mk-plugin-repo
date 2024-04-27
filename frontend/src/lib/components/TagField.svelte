@@ -1,6 +1,7 @@
 <script lang="ts">
 	let cachedTags = ['Fun', 'Tool'] as string[];
 	export let tags: string[] = [];
+	export let className : string = '';
 
 	let hasFocus = false;
 	let inputEl: HTMLInputElement;
@@ -32,7 +33,7 @@
 </script>
 
 <div>
-	<label class="flex gap-2 grow input input-bordered items-center">
+	<label class="flex gap-2 grow input input-bordered items-center {className}">
 		<input
 			class="grow"
 			placeholder={'Search Tags'}
