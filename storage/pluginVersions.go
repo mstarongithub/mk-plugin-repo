@@ -91,6 +91,11 @@ func (storage *Storage) HideVersion(pluginID uint, versionName string) error {
 			return err
 		}
 	}
+
+	if err = storage.HidePluginVersionFromPlugin(pluginID, versionName); err != nil {
+		return fmt.Errorf("can't update parent plugin: %w", err)
+	}
+
 	storage.db.Delete(version)
 	// TODO: Add logging
 	return nil

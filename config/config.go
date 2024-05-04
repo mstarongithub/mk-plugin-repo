@@ -32,9 +32,17 @@ type ConfigSSL struct {
 	CustomCertificatePath *string `toml:"custom_certificate_path"`
 }
 
+type ConfigAuthProvider struct {
+	ID     string `toml:"id"`
+	Secret string `toml:"secret"`
+}
+
 type ConfigOauth struct {
-	ClientID     string `toml:"client_id"`
-	ClientSecret string `toml:"client_secret"`
+	Github    *ConfigAuthProvider `toml:"github,omitempty"`
+	Twitter   *ConfigAuthProvider `toml:"twitter,omitempty"`
+	Microsoft *ConfigAuthProvider `toml:"microsoft,omitempty"`
+	Patreon   *ConfigAuthProvider `toml:"patreon,omitempty"`
+	Google    *ConfigAuthProvider `toml:"google,omitempty"`
 }
 
 type Config struct {

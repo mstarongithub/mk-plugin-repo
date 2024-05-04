@@ -3,8 +3,6 @@ package server
 import (
 	"net/http"
 
-	"github.com/volatiletech/authboss/v3"
-
 	"github.com/mstarongithub/mk-plugin-repo/storage"
 	customtypes "github.com/mstarongithub/mk-plugin-repo/storage/customTypes"
 )
@@ -25,14 +23,6 @@ func StorageFromRequest(r *http.Request) *storage.Storage {
 
 func ServerFromRequest(r *http.Request) *Server {
 	store, ok := r.Context().Value(CONTEXT_KEY_SERVER).(*Server)
-	if !ok {
-		store = nil
-	}
-	return store
-}
-
-func AuthbossFromRequest(r *http.Request) *authboss.Authboss {
-	store, ok := r.Context().Value(CONTEXT_KEY_AUTHBOSS).(*authboss.Authboss)
 	if !ok {
 		store = nil
 	}

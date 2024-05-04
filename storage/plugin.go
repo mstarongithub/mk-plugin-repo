@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/sirupsen/logrus"
+	"gitlab.com/mstarongitlab/goutils/sliceutils"
 	"gorm.io/gorm"
 
 	customtypes "github.com/mstarongithub/mk-plugin-repo/storage/customTypes"
@@ -23,6 +24,8 @@ type Plugin struct {
 	Type             customtypes.PluginType // What type of plugin this is. Normal plugin or widget are the only options currently
 	Approved         bool                   // Got this plugin approved for publishing?
 }
+
+var ErrPluginMustHaveAtLeastOneVersion = errors.New("plugins must have at least one version")
 
 func (storage *Storage) GetAllPlugins() []Plugin {
 	logrus.Debugln("Attempting to get all plugins")
@@ -148,5 +151,29 @@ func (storage *Storage) DeletePlugin(pluginID, authorID uint) error {
 		return ErrUnauthorised
 	}
 	storage.db.Delete(plugin)
+	return nil
+}
+
+func (storage *Storage) HidePluginVersionFromPlugin(pluginID uint, versionName string) error {
+	plugin := Plugin{}
+	storage.db.First(plugin, pluginID)
+	if plugin.Name == "" {
+		return ErrPluginNotFound
+	}
+
+	// Don't remove a version if said version is the only one this plugin has
+	if len(plugin.PreviousVersions) == 1 {
+		return ErrPluginMustHaveAtLeastOneVersion
+	}
+
+	// Then first remove it from the slice of versions
+	plugin.PreviousVersions = sliceutils.Filter(plugin.PreviousVersions, func(t string) bool {
+		return t != versionName
+	})
+	// And finally downgrade the current version if it matches the version to delete
+	if plugin.CurrentVersion == versionName {
+		plugin.CurrentVersion = plugin.PreviousVersions[len(plugin.PreviousVersions)-1]
+	}
+
 	return nil
 }

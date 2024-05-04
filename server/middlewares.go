@@ -4,8 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/justinas/nosurf"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/mstarongitlab/weblogger"
 )
 
@@ -39,23 +37,4 @@ func WebLoggerWrapper(h http.Handler) http.Handler {
 			FailedRequestLevel: weblogger.LOG_LEVEL_WARN,
 		},
 	)
-}
-
-func NosurfCheckWrapper(h http.Handler) http.Handler {
-	n := nosurf.New(h)
-	n.SetFailureHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logrus.WithField("reason", nosurf.Reason(r)).Warnln("Failed to validate CSRF token")
-		w.WriteHeader(http.StatusBadRequest)
-	}))
-	return n
-}
-
-func NosurfTokenInsertMiddleware(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		newReq := r.WithContext(
-			context.WithValue(r.Context(), CONTEXT_KEY_CSRF_TOKEN, nosurf.Token(r)),
-		)
-		w.Header().Set("CSRF-Token", nosurf.Token(r))
-		h.ServeHTTP(w, newReq)
-	})
 }
