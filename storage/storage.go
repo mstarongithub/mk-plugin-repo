@@ -54,8 +54,7 @@ func NewStorage(sqliteFile string, customConfig *gorm.Config) (storage Storage, 
 		Model: gorm.Model{
 			ID: 12345,
 		},
-		Approved:  true,
-		Confirmed: true,
+		Approved: true,
 	})
 	storage.db = db
 	storage.tokens = map[uint][]string{}

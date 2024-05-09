@@ -45,12 +45,18 @@ type ConfigOauth struct {
 	Google    *ConfigAuthProvider `toml:"google,omitempty"`
 }
 
+type ConfigWebauth struct {
+	DisplayName string
+	// ID can be extracted from root url
+}
+
 type Config struct {
+	// General config stuff. Required
 	General ConfigGeneral `toml:"general"`
 	// SSL Config. Required
 	SslConfig ConfigSSL `toml:"ssl"`
-	// OAuth config. Optional
-	OAuthConfig *ConfigOauth `toml:"oauth"`
+	// Webauth config. Required
+	WebAuth ConfigWebauth `toml:"webauth"`
 }
 
 func ReadConfig(fileName *string) (Config, error) {

@@ -3,7 +3,6 @@ package storage
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"gorm.io/gorm"
 
@@ -22,39 +21,6 @@ type Account struct {
 	Description  string                         // A description of the account, added by the user. Not necessary
 	PluginsOwned customtypes.GenericSlice[uint] // IDs of plugins this account owns (has created)
 	Approved     bool                           // Is this account approved for performing any actions
-
-	// ---- authboss things ----
-	// Auth
-	Mail     string // Mail address of the account
-	Password string // Hash of the password
-
-	// Confirm
-	ConfirmSelector string
-	ConfirmVerifier string
-	Confirmed       bool
-
-	// Lock
-	AttemptCount int
-	LastAttempt  time.Time
-	Locked       time.Time
-
-	// Recover
-	RecoverSelector    string
-	RecoverVerifier    string
-	RecoverTokenExpiry time.Time
-
-	// OAuth2
-	OAuth2UID          string
-	OAuth2Provider     string
-	OAuth2AccessToken  string
-	OAuth2RefreshToken string
-	OAuth2Expiry       time.Time
-
-	// 2fa
-	TOTPSecretKey      string
-	SMSPhoneNumber     string
-	SMSSeedPhoneNumber string
-	RecoveryCodes      string
 }
 
 var ErrAccountNotFound = errors.New("account not found")
