@@ -21,6 +21,7 @@ type Account struct {
 	Description  string                         // A description of the account, added by the user. Not necessary
 	PluginsOwned customtypes.GenericSlice[uint] // IDs of plugins this account owns (has created)
 	Approved     bool                           // Is this account approved for performing any actions
+	PasswordHash []byte                         // The hash of the user's password, if they have one
 }
 
 var ErrAccountNotFound = errors.New("account not found")

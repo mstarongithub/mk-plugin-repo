@@ -7,6 +7,7 @@ import (
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/sirupsen/logrus"
 
+	"github.com/ermites-io/passwd"
 	"github.com/mstarongithub/mk-plugin-repo/config"
 	"github.com/mstarongithub/mk-plugin-repo/storage"
 )
@@ -17,6 +18,7 @@ type Auth struct {
 	store               *storage.Storage
 	webAuth             *webauthn.WebAuthn
 	currentAuthRequests map[string]tempAuthRequest
+	hasher              *passwd.Profile
 }
 
 type tempAuthRequest struct {
@@ -51,9 +53,16 @@ func NewAuth(store *storage.Storage) (*Auth, error) {
 	if err != nil {
 		return nil, fmt.Errorf("webAuth creation failed with config %#v: %w", webAuthConf, err)
 	}
+	hasher, err := passwd.New(passwd.Argon2idDefault)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create password hasher: %w", err)
+	}
+	hasher.SetKey([]byte(config.GlobalConfig.General.HashingSecret))
+
 	return &Auth{
 		store:   store,
 		webAuth: webAuth,
+		hasher:  hasher,
 	}, nil
 }
 
@@ -67,8 +76,18 @@ func (a *Auth) LoginStartWithPassword(username, password string) (string, bool) 
 			Info("Error while trying to start a login request with username and password")
 		return "", false
 	}
+
+	if a.hasher.Compare(acc.PasswordHash, []byte(password)) != nil {
+		logrus.
+			WithField("username", username).
+			Infoln("Bad password while authenticating user via password")
+		return "", false
+	}
+
 	return "", false
 }
+
+func (a *Auth) LoginContinueWithPassword(tempID string) {}
 
 func (a *Auth) LoginStartWithPasskey()    {}
 func (a *Auth) LoginCompleteWithPasskey() {}

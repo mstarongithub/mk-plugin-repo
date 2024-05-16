@@ -18,7 +18,8 @@ type ConfigGeneral struct {
 	// This includes port and protocol. Examples:
 	// - http://localhost:8080
 	// - https://subdomain.example.com
-	RootUrl string `toml:"root_url"`
+	RootUrl       string `toml:"root_url"`
+	HashingSecret string `toml:"hash_secret"`
 }
 
 type ConfigSSL struct {
