@@ -1,37 +1,44 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
+	"math/rand"
 	"net/url"
-
-	"github.com/go-webauthn/webauthn/webauthn"
-	"github.com/sirupsen/logrus"
+	"time"
 
 	"github.com/ermites-io/passwd"
+	"github.com/go-webauthn/webauthn/webauthn"
+	"github.com/pquerna/otp/totp"
+	"github.com/sirupsen/logrus"
+
 	"github.com/mstarongithub/mk-plugin-repo/config"
 	"github.com/mstarongithub/mk-plugin-repo/storage"
+	customtypes "github.com/mstarongithub/mk-plugin-repo/storage/customTypes"
 )
 
-type tempAuthState uint
-
-type Auth struct {
-	store               *storage.Storage
-	webAuth             *webauthn.WebAuthn
-	currentAuthRequests map[string]tempAuthRequest
-	hasher              *passwd.Profile
-}
-
-type tempAuthRequest struct {
-	ID     string
-	State  tempAuthState
-	UserID uint
-}
+type NextAuthState uint
 
 const (
-	_AUTH_STATE_DONE           = tempAuthState(0)
-	_AUTH_STATE_NEEDS_MFA_FIDO = tempAuthState(1 << iota)
-	_AUTH_STAT_NEEDS_MFA_APP_TOKEN
+	AUTH_SUCCESS = NextAuthState(0)
+	AUTH_FAIL    = NextAuthState(1 << iota)
+	AUTH_NEEDS_FIDO
+	AUTH_NEEDS_TOTP
+	AUTH_NEEDS_MAIL
 )
+
+type Auth struct {
+	store              *storage.Storage
+	webAuth            *webauthn.WebAuthn
+	hasher             *passwd.Profile
+	activeAuthRequests map[string]TempAuthRequest
+}
+
+type TempAuthRequest struct {
+	AuthID    string
+	AccountID uint // NOTE: Could replace this with a reference to the actual account struct later if db access times become a problem
+	NextState NextAuthState
+}
 
 func NewAuth(store *storage.Storage) (*Auth, error) {
 	if config.GlobalConfig == nil {
@@ -60,46 +67,80 @@ func NewAuth(store *storage.Storage) (*Auth, error) {
 	hasher.SetKey([]byte(config.GlobalConfig.General.HashingSecret))
 
 	return &Auth{
-		store:   store,
-		webAuth: webAuth,
-		hasher:  hasher,
+		store:              store,
+		webAuth:            webAuth,
+		hasher:             hasher,
+		activeAuthRequests: map[string]TempAuthRequest{},
 	}, nil
 }
 
-// Returns an ID of a temporary login process and whether the initial attempt could even be found
-// So if username and password match, this function returns the ID of a login process and true
-func (a *Auth) LoginStartWithPassword(username, password string) (string, bool) {
+// TODO: Implement these two
+func (a *Auth) LoginWithPasskeyStart()    {}
+func (a *Auth) LoginWithPasskeyComplete() {}
+
+func (a *Auth) LoginWithPassword(username, password string) (NextAuthState, string) {
+	time.Sleep(
+		(time.Millisecond * time.Duration(rand.Uint32())) % 250,
+	) // Sleep a random amount of time between 0 and 250ms. Fuck those timing attacks
+
 	acc, err := a.store.FindAccountByName(username)
 	if err != nil {
 		logrus.WithError(err).
 			WithField("username", username).
-			Info("Error while trying to start a login request with username and password")
-		return "", false
+			Infoln("Couldn't find account for login request")
+		return AUTH_FAIL, ""
+	}
+
+	if acc.AuthMethods == customtypes.AUTH_METHOD_NONE {
+		return AUTH_SUCCESS, ""
+	}
+	if !customtypes.AuthIsFlagSet(acc.AuthMethods, customtypes.AUTH_METHOD_PASSWORD) {
+		return AUTH_FAIL, ""
 	}
 
 	if a.hasher.Compare(acc.PasswordHash, []byte(password)) != nil {
-		logrus.
-			WithField("username", username).
-			Infoln("Bad password while authenticating user via password")
-		return "", false
+		return AUTH_FAIL, ""
 	}
 
-	return "", false
+	retFlag := AUTH_SUCCESS // Because this is the 0 state
+	if customtypes.AuthIsFlagSet(acc.AuthMethods, customtypes.AUTH_METHOD_FIDO) {
+		retFlag = retFlag | AUTH_NEEDS_FIDO
+	}
+	if customtypes.AuthIsFlagSet(acc.AuthMethods, customtypes.AUTH_METHOD_TOTP) {
+		retFlag = retFlag | AUTH_NEEDS_TOTP
+	}
+	if retFlag == 0 && customtypes.AuthIsFlagSet(acc.AuthMethods, customtypes.AUTH_METHOD_MAIL) {
+		retFlag = retFlag | AUTH_NEEDS_MAIL
+	}
+
+	if retFlag == AUTH_SUCCESS {
+		return AUTH_SUCCESS, ""
+	}
+
+	requestID := username + fmt.Sprint(time.Now().Unix())
+	a.activeAuthRequests[requestID] = TempAuthRequest{
+		AuthID:    requestID,
+		AccountID: acc.ID,
+		NextState: retFlag,
+	}
+	return retFlag, requestID
 }
 
-func (a *Auth) LoginContinueWithPassword(tempID string) {}
-
-func (a *Auth) LoginStartWithPasskey()    {}
-func (a *Auth) LoginCompleteWithPasskey() {}
-
-func (a *Auth) RegisterStartWithPasskey()    {}
-func (a *Auth) RegisterCompleteWithPasskey() {}
-
-func (a *Auth) GetUserToken(uId uint) (string, error) {
-	return "", nil
-}
-
-// Check if a token is valid for authentication. Returns username and result
-func (a *Auth) VerifyToken(token string) (string, bool) {
-	return "", false
+func (a *Auth) LoginWithMFA(
+	processID string,
+	token string,
+	mfaType NextAuthState,
+) (NextAuthState, string) {
+	process, ok := a.activeAuthRequests[processID]
+	if !ok {
+		return AUTH_FAIL, ""
+	}
+	if !customtypes.AuthIsFlagSet(
+		customtypes.AuthMethods(process.NextState),
+		customtypes.AuthMethods(mfaType),
+	) {
+		return AUTH_FAIL, ""
+	}
+	totp
+	return 0, ""
 }

@@ -18,6 +18,7 @@ require (
 require (
 	cloud.google.com/go/compute v1.25.1 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
+	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/dghubble/oauth1 v0.7.3 // indirect
 	github.com/ermites-io/passwd v0.2.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.6.0 // indirect
@@ -33,6 +34,7 @@ require (
 	github.com/klauspost/compress v1.17.7 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/montanaflynn/stats v0.7.1 // indirect
+	github.com/pquerna/otp v1.4.0 // indirect
 	github.com/rrivera/identicon v0.0.0-20240116195454-d5ba35832c0d // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
