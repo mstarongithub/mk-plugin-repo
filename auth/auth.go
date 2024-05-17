@@ -39,6 +39,8 @@ type TempAuthRequest struct {
 	NextState NextAuthState
 }
 
+// Create a new authentication manager
+// Requires a reference to a storage implementation
 func NewAuth(store *storage.Storage) (*Auth, error) {
 	if config.GlobalConfig == nil {
 		panic("Global config is nil!")
@@ -74,9 +76,19 @@ func NewAuth(store *storage.Storage) (*Auth, error) {
 }
 
 // TODO: Implement these two
-func (a *Auth) LoginWithPasskeyStart()    {}
+
+// Start a login attempt using a passkey
+// NOTE: Not implemented yet signature will also change
+func (a *Auth) LoginWithPasskeyStart() {}
+
+// Complete a login attempt with a passkey
+// Requires that attempt to be started by a call to LoginWithPasskeyStart
+// NOTE: Not implemented yet, signature will also change
 func (a *Auth) LoginWithPasskeyComplete() {}
 
+// Attempt a login using a username and password
+// Tries to prevent timing attacks at least a little
+// Returns the next state (a set of flags, see the AUTH_ constants, 0 == ok) and a string containing the process ID if mfa is required
 func (a *Auth) LoginWithPassword(username, password string) (NextAuthState, string) {
 	time.Sleep(
 		(time.Millisecond * time.Duration(rand.Uint32())) % 250,
@@ -126,6 +138,9 @@ func (a *Auth) LoginWithPassword(username, password string) (NextAuthState, stri
 	return retFlag, requestID
 }
 
+// Continue a login process started via a username + password combo
+// Takes the type of mfa as well as a token to check
+// Returns the next state (a set of flags, see the AUTH_ constants, 0 == ok) and a string containing the process ID if the process is not complete yet
 func (a *Auth) LoginWithMFA(
 	processID string,
 	token string,
@@ -145,12 +160,16 @@ func (a *Auth) LoginWithMFA(
 
 	switch mfaType {
 	case AUTH_NEEDS_FIDO:
-
+		// TODO: Implement this
 	case AUTH_NEEDS_TOTP:
 		if !totp.Validate(token, *acc.TotpToken) {
 			return AUTH_FAIL, ""
 		}
 	case AUTH_NEEDS_MAIL:
+		// TODO: Implement this, this'll be pain
 	}
+
+	process.NextState = process.NextState &^ mfaType // Disable completed mfa flag. Since 0 is the ok, all is ok
+
 	return 0, ""
 }
