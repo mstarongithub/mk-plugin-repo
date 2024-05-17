@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"errors"
 	"fmt"
 	"math/rand"
 	"net/url"
@@ -110,6 +109,7 @@ func (a *Auth) LoginWithPassword(username, password string) (NextAuthState, stri
 		retFlag = retFlag | AUTH_NEEDS_TOTP
 	}
 	if retFlag == 0 && customtypes.AuthIsFlagSet(acc.AuthMethods, customtypes.AUTH_METHOD_MAIL) {
+		// TODO: Send mail with code here
 		retFlag = retFlag | AUTH_NEEDS_MAIL
 	}
 
@@ -141,6 +141,16 @@ func (a *Auth) LoginWithMFA(
 	) {
 		return AUTH_FAIL, ""
 	}
-	totp
+	acc, _ := a.store.FindAccountByID(process.AccountID)
+
+	switch mfaType {
+	case AUTH_NEEDS_FIDO:
+
+	case AUTH_NEEDS_TOTP:
+		if !totp.Validate(token, *acc.TotpToken) {
+			return AUTH_FAIL, ""
+		}
+	case AUTH_NEEDS_MAIL:
+	}
 	return 0, ""
 }
