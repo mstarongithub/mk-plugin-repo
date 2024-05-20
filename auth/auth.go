@@ -161,15 +161,18 @@ func (a *Auth) LoginWithMFA(
 	switch mfaType {
 	case AUTH_NEEDS_FIDO:
 		// TODO: Implement this
+		panic("MFA Fido not implemented yet")
 	case AUTH_NEEDS_TOTP:
 		if !totp.Validate(token, *acc.TotpToken) {
 			return AUTH_FAIL, ""
 		}
 	case AUTH_NEEDS_MAIL:
 		// TODO: Implement this, this'll be pain
+		panic("MFA Mail not implemented yet")
 	}
 
 	process.NextState = process.NextState &^ mfaType // Disable completed mfa flag. Since 0 is the ok, all is ok
+	a.activeAuthRequests[processID] = process
 
-	return 0, ""
+	return process.NextState, processID
 }
