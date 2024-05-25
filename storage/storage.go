@@ -44,6 +44,7 @@ func NewStorage(sqliteFile string, customConfig *gorm.Config) (storage Storage, 
 		&Account{},
 		&Plugin{},
 		&PluginVersion{},
+		&Token{},
 	)
 	if err != nil {
 		// TODO: Add logging
