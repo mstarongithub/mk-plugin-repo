@@ -192,6 +192,10 @@
 	});
 </script>
 
+<svelte:head>
+	<title>Edit {metadata.name} - *Key Plugin Repo</title>
+</svelte:head>
+
 <Navbar></Navbar>
 
 <div class="flex flex-col gap-2 justify-center items-center">

@@ -2,6 +2,10 @@
 	import Navbar from '$lib/Navbar.svelte';
 </script>
 
+<svelte:head>
+	<title>Login - *Key Plugin Repo</title>
+</svelte:head>
+
 <Navbar ></Navbar>
 
 <!-- <div class="flex items-center"> -->

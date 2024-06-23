@@ -116,79 +116,11 @@
 	};
 </script>
 
+<svelte:head>
+	<title>Submit new plugin - *Key Plugin Repo</title>
+</svelte:head>
+
 <Navbar></Navbar>
-<!-- 
-<div class="flex flex-col gap-2 justify-center items-center">
-	<div
-		class="card flex flex-row items-center justify-between !w-10/12 !h-3/4 bg-base-100 shadow-xl overflow-clip p-4"
-	>
-		<div class="card items-center w-full space-y-3">
-			<input
-				type="text"
-				placeholder="Name"
-				class="input input-bordered w-full max-w-xs"
-				bind:value={newPluginData.name}
-			/>
-
-			<select class="select select-bordered w-full max-w-xs" bind:value={newPluginData.type}>
-				<option disabled selected value="">What type of script is it?</option>
-				<option value="plugin">Plugin</option>
-				<option value="widget">Widget</option>
-			</select>
-
-			<label class="form-control w-full max-w-xs">
-				<div class="label">
-					<span class="label-text">Paste the code here</span>
-				</div>
-				<textarea
-					class="textarea textarea-primary"
-					placeholder="Code"
-					bind:value={newPluginData.code}
-					on:change={codeEdited}
-				></textarea>
-			</label>
-
-			<label class="form-control w-full max-w-xs">
-				<div class="label">
-					<span class="label-text">A short sentence on what the plugin does</span>
-				</div>
-				<textarea
-					class="textarea textarea-primary"
-					placeholder="Short Description"
-					bind:value={newPluginData.summary_short}
-				></textarea>
-			</label>
-
-			<label class="form-control w-full max-w-xs">
-				<div class="label">
-					<span class="label-text">Describe what the plugin does in detail</span>
-				</div>
-				<textarea
-					class="textarea textarea-primary"
-					placeholder="Long Description"
-					bind:value={newPluginData.summary_long}
-				></textarea>
-			</label>
-
-			<!-- svelte-ignore a11y-label-has-associated-control --
-			<label class="form-control w-full max-w-xs">
-				<div class="label">
-					<span class="label-text">Tags</span>
-				</div>
-				<TagField bind:tags={newPluginData.tags}></TagField>
-			</label>
-
-			<label class="form-control w-full max-w-xs">
-				<div class="label">
-					<span class="label-text">Upload a cover image</span>
-				</div>
-				<input type="file" class="file-input file-input-bordered w-full max-w-xs" />
-			</label>
-
-			
-		</div>
-	</div>
-</div> -->
 
 <div class="flex flex-col gap-2 justify-center items-center">
 	<div class="card flex min-w-96 w-10/12 h-3/4 m-10 p-3 bg-base-200 shadow-xl lg:card-side">

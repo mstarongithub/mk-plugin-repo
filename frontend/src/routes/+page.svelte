@@ -31,6 +31,10 @@
 	fetchListings();
 </script>
 
+<svelte:head>
+	<title>Plugins - *Key Plugin Repo</title>
+</svelte:head>
+
 <Navbar></Navbar>
 
 <!-- <h1 class="text-3xl text-red-600 font-bold underline">
