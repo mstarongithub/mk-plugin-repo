@@ -81,13 +81,14 @@
 			>
 				<li class="pl-2 rounded-full"><ThemeSwitcher></ThemeSwitcher></li>
 
-				<li>
+				<li><a href="/submit">Submit Plugin/Widget</a></li>
+				<!-- <li>
 					<a class="justify-between">
 						Profile
 						<span class="badge">New</span>
 					</a>
-				</li>
-				<li><a>Settings</a></li>
+				</li> -->
+				<!-- <li><a>Settings</a></li> -->
 				<li><a>Logout</a></li>
 			</ul>
 		</div>
