@@ -3,6 +3,7 @@
 	import Navbar from '$lib/Navbar.svelte';
 	import { getAIscriptVersion, getPluginVersion } from '$lib/aiScriptCodeParsers';
 	import { BASE_DIR } from '$lib/baseDir';
+	import EditBasicPluginData from '$lib/components/EditBasicPluginData.svelte';
 	import PluginCode from '$lib/components/PluginCode.svelte';
 	import SettingsField from '$lib/components/SettingsField.svelte';
 	import TagField from '$lib/components/TagField.svelte';
@@ -16,7 +17,8 @@
 	let TAB_IDS = {
 		BASIC: 0,
 		UPDATE_PLUGIN: 1,
-		MANAGE_HISTORY: 2
+		MANAGE_HISTORY: 2,
+		DELETE: 3
 	};
 
 	let pluginId: string = '';
@@ -126,7 +128,28 @@
 		}
 	}
 
-	let selectedVersion = ''
+	async function deletePlugin() {
+		let response = await fetch(`${BASE_DIR}/api/v1/plugins/${pluginId}`, {
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			method: 'DELETE'
+		});
+		if (response.ok) {
+			notify.success(`Deleted Plugin`);
+
+			window.setTimeout(()=>{
+				window.location.href = '/';
+			}, 1000);
+			return await response.json();
+		} else {
+			let err = await response;
+			console.error(err);
+			notify.error('Server Error');
+		}
+	}
+
+	let selectedVersion = '';
 
 	function expandSelectedVersion(version: string) {
 		selectedVersion = version;
@@ -199,58 +222,21 @@
 						}}>Manage Update History</button
 					>
 				</li>
+				<li>
+					<button
+						class="capitalize"
+						on:click={() => {
+							tab = TAB_IDS.DELETE;
+						}}>Danger Zone</button
+					>
+				</li>
 			</ul>
 		</figure>
 		{#if tab === TAB_IDS.BASIC}
 			<div class="card-body p-10 grow">
 				<!-- <h2 class="card-title">Edit Plugin Page</h2> -->
 
-				<SettingsField
-					title="Name of the {metadata.type}"
-					subtitle="This is one of the first things people will see"
-				>
-					<input
-						type="text"
-						placeholder="Amazing {metadata.type}"
-						class="input input-bordered w-full max-w-xs capitalize"
-						bind:value={metadata.name}
-					/>
-				</SettingsField>
-
-				<SettingsField title="Type" subtitle="Is this a plugin or widget?">
-					<!-- <input type="text" placeholder="Plugin" class="input input-bordered w-full max-w-xs" /> -->
-					<select class="select select-bordered w-full max-w-xs" bind:value={metadata.type}>
-						<option disabled selected value="">What type of script is it?</option>
-						<option value="plugin">Plugin</option>
-						<option value="widget">Widget</option>
-					</select>
-				</SettingsField>
-
-				<SettingsField title="Short Description" subtitle="In one sentance explain what it does.">
-					<!-- <input type="text" placeholder="Plugin" class="input input-bordered w-full max-w-xs" /> -->
-					<textarea
-						class="textarea max-w-xs"
-						placeholder="Short Description"
-						maxlength="128"
-						bind:value={metadata.summary_short}
-					></textarea>
-				</SettingsField>
-
-				<SettingsField
-					title="Long Description"
-					subtitle="Explain how to use this {metadata.type} and all its features."
-				>
-					<!-- <input type="text" placeholder="Plugin" class="input input-bordered w-full max-w-xs" /> -->
-					<textarea
-						class="textarea max-w-xs"
-						placeholder="Long Description"
-						bind:value={metadata.summary_long}
-					></textarea>
-				</SettingsField>
-
-				<SettingsField title="Tags" subtitle="Select some tags that represent your {metadata.type}">
-					<TagField className="!max-w-xs" bind:tags={metadata.tags}></TagField>
-				</SettingsField>
+				<EditBasicPluginData bind:name={metadata.name} bind:summary_short={metadata.summary_short} bind:summary_long={metadata.summary_long} bind:tags={metadata.tags} bind:type={metadata.type}></EditBasicPluginData>
 
 				<div class="card-actions justify-center">
 					<button class="btn btn-primary" on:click={updateMetadata}>Save</button>
@@ -264,7 +250,7 @@
 					<!-- <input type="text" placeholder="Plugin" class="input input-bordered w-full max-w-xs" /> -->
 					<textarea
 						class="textarea"
-						placeholder="Long Description"
+						placeholder="Code Here"
 						bind:value={newCode.code}
 						on:change={updateVersionInfo}
 					></textarea>
@@ -299,7 +285,7 @@
 											<button
 												class="btn btn-primary"
 												on:click={() => {
-													window.open(`/plugin?id=${pluginId}&v=${versionHistoryEntry}`, '_blank')
+													window.open(`/plugin?id=${pluginId}&v=${versionHistoryEntry}`, '_blank');
 													// console.log(versionHistoryEntry)
 													// expandSelectedVersion(versionHistoryEntry);
 												}}
@@ -325,6 +311,16 @@
 						</tbody>
 					</table>
 				</div>
+			</div>
+		{:else if tab === TAB_IDS.DELETE}
+			<div class="card-body p-10 grow">
+				<h2 class="card-title capitalize">Delete {metadata.type}</h2>
+
+				<SettingsField title="Delete" subtitle="This action cannot be undone">
+					<!-- <input type="text" placeholder="Plugin" class="input input-bordered w-full max-w-xs" /> -->
+					<button class="btn btn-error" on:click={deletePlugin}>Delete</button>
+					
+				</SettingsField>
 			</div>
 		{/if}
 	</div>

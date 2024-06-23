@@ -8,8 +8,6 @@
 		getPluginVersion
 	} from '$lib/aiScriptCodeParsers';
 	import { BASE_DIR } from '$lib/baseDir';
-	import EditBasicPluginData from '$lib/components/EditBasicPluginData.svelte';
-	import SettingsField from '$lib/components/SettingsField.svelte';
 	import TagField from '$lib/components/TagField.svelte';
 	import { notify } from '$lib/notificationHelper';
 
@@ -19,7 +17,7 @@
 		summary_long: string;
 		initial_version: string;
 		tags: string[];
-		type: 'plugin' | 'widget'; // Type should be either "plugin" or "widget"
+		type: 'plugin' | 'widget' | undefined; // Type should be either "plugin" or "widget"
 		code: string;
 		aiscript_version: string;
 	}
@@ -30,7 +28,7 @@
 		summary_long: '',
 		initial_version: '',
 		tags: [],
-		type: 'plugin',
+		type: undefined,
 		code: '',
 		aiscript_version: ''
 	};
@@ -40,7 +38,7 @@
 			return notify.error('Please insert valid AIscript code');
 		},
 		MISSING_FIELDS: () => {
-			return notify.error('Please fill out all the fields');
+			return notify.error('Please fill out all the fields'); 
 		}
 	};
 
@@ -117,7 +115,7 @@
 </script>
 
 <Navbar></Navbar>
-<!-- 
+
 <div class="flex flex-col gap-2 justify-center items-center">
 	<div
 		class="card flex flex-row items-center justify-between !w-10/12 !h-3/4 bg-base-100 shadow-xl overflow-clip p-4"
@@ -170,7 +168,7 @@
 				></textarea>
 			</label>
 
-			<!-- svelte-ignore a11y-label-has-associated-control --
+			<!-- svelte-ignore a11y-label-has-associated-control -->
 			<label class="form-control w-full max-w-xs">
 				<div class="label">
 					<span class="label-text">Tags</span>
@@ -185,33 +183,7 @@
 				<input type="file" class="file-input file-input-bordered w-full max-w-xs" />
 			</label>
 
-			
-		</div>
-	</div>
-</div> -->
-
-<div class="flex flex-col gap-2 justify-center items-center">
-	<div class="card flex min-w-96 w-10/12 h-3/4 m-10 p-3 bg-base-200 shadow-xl lg:card-side">
-		<div class="card-body p-10 grow !flex !justify-center items-center">
-			<h1 class="text-4xl font-semibold capitalize text-center">Submit a new plugin</h1>
-			<div class="w-fit">
-				<EditBasicPluginData
-					bind:name={newPluginData.name}
-					bind:summary_short={newPluginData.summary_short}
-					bind:summary_long={newPluginData.summary_long}
-					bind:tags={newPluginData.tags}
-					bind:type={newPluginData.type}
-				></EditBasicPluginData>
-
-				<SettingsField title="Code" subtitle="The full code that runs this {newPluginData.type}">
-					<textarea class="textarea" placeholder="Code Here" bind:value={newPluginData.code}
-					></textarea>
-				</SettingsField>
-			</div>
-
-			<div class="card-actions justify-center">
-				<button class="btn btn-primary" on:click={submit}>Submit Plugin</button>
-			</div>
+			<button class="btn btn-primary" on:click={submit}>Submit Plugin</button>
 		</div>
 	</div>
 </div>

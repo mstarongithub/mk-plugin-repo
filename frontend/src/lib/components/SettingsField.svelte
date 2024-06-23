@@ -7,11 +7,11 @@
 
 
 <div class="card flex bg-base-200 lg:card-side {className}">
-    <figure class="flex flex-col p-10 md:w-1/3">
+    <figure class="flex flex-col p-4 lg:p-10 md:w-1/3">
         <h3 class="text-xl font-semibold capitalize">{title}</h3>
         <p class="text-neutral-500 font-sans text-wrap">{subtitle}</p>
     </figure>
-    <div class="card-body p-10 grow">
+    <div class="card-body p-4 lg:p-10 grow">
         <slot></slot>
     </div>
 </div>
