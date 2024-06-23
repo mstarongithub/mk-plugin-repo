@@ -17,10 +17,18 @@
 			await navigator.clipboard.writeText(code);
 			
 			notify.success('Copied Plugin to clipboad');
+			
+			copyText = 'Copied!';
+			setTimeout(() => {
+				copyText = 'Copy';
+			}, 1000);
+
 		} catch (error) {
 			notify.error('Copy failed.');
 		}
 	};
+
+	let copyText : string = 'Copy';
 </script>
 
 <svelte:head>
@@ -39,7 +47,7 @@
 				modal.showModal();
 			}}>How To Install</button
 		>
-		<button type="submit" class="btn" on:click={copy}>Copy</button>
+		<button type="submit" class="btn" on:click={copy}>{copyText}</button>
 	</div>
 </div>
 
