@@ -6,6 +6,8 @@
 	let inputEl: HTMLInputElement;
 	let smallDevice = false;
 
+	let loggedIn = false;
+
 	if (browser) {
 		const shortcuts = new Shortcuts({
 			capture: true, // Handle events during the capturing phase
@@ -66,31 +68,37 @@
 				{/if}
 			</label>
 		</div>
-		<div class="dropdown dropdown-end">
-			<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar">
-				<div class="w-10 rounded-full">
-					<img
-						alt="Tailwind CSS Navbar component"
-						src="https://woem.men/files/thumbnail-f2f87598-0eca-4abf-b1b2-800bdde1d8bf"
-					/>
+		{#if loggedIn}
+			<div class="dropdown dropdown-end">
+				<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar">
+					<div class="w-10 rounded-full">
+						<img
+							alt="Tailwind CSS Navbar component"
+							src="https://woem.men/files/thumbnail-f2f87598-0eca-4abf-b1b2-800bdde1d8bf"
+						/>
+					</div>
 				</div>
-			</div>
-			<ul
-				tabindex="0"
-				class="mt-3 z-[1] p-2 shadow menu menu-sm dropdown-content bg-base-100 rounded-box w-52"
-			>
-				<li class="pl-2 rounded-full"><ThemeSwitcher></ThemeSwitcher></li>
+				<ul
+					tabindex="0"
+					class="mt-3 z-[1] p-2 shadow menu menu-sm dropdown-content bg-base-100 rounded-box w-52"
+				>
+					<li class="pl-2 rounded-full"><ThemeSwitcher></ThemeSwitcher></li>
 
-				<li><a href="/submit">Submit Plugin/Widget</a></li>
-				<!-- <li>
-					<a class="justify-between">
-						Profile
-						<span class="badge">New</span>
-					</a>
-				</li> -->
-				<!-- <li><a>Settings</a></li> -->
-				<li><a>Logout</a></li>
-			</ul>
-		</div>
+					<li><a href="/submit">Submit Plugin/Widget</a></li>
+					<!-- <li>
+						<a class="justify-between">
+							Profile
+							<span class="badge">New</span>
+						</a>
+					</li> -->
+					<!-- <li><a>Settings</a></li> -->
+					<li><a>Logout</a></li>
+				</ul>
+			</div>
+		{:else}
+			<a href="/signup" class="btn btn-outline">Sign up</a>
+
+			<a href="/login" class="btn btn-outline">Login</a>
+		{/if}
 	</div>
 </div>
