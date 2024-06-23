@@ -12,6 +12,8 @@
 
 	export let showExtraOptions: boolean = false;
 
+	export let pluginId : string;
+
 	export let className = '';
 </script>
 
@@ -32,7 +34,7 @@
 				<details class="dropdown dropdown-end">
 					<summary class="m-1 btn"><Icon icon="charm:menu-meatball" /></summary>
 					<ul class="p-2 shadow menu dropdown-content z-[1] bg-base-100 rounded-box w-52">
-						<li><button>Edit</button></li>
+						<li><a href='/editPlugin?id={pluginId}'>Edit</a></li>
 					</ul>
 				</details>
 			{/if}

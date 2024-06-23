@@ -88,6 +88,7 @@
 			shortDesc={selectedPluginData.summary_long}
 			tags={selectedPluginData.tags}
 			showExtraOptions={true}
+			{pluginId}
 		></PluginListing>
 	{/if}
 
