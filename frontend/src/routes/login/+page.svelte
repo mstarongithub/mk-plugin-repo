@@ -7,7 +7,7 @@
 <!-- <div class="flex items-center"> -->
 <div class="absolute top-0 w-screen h-screen flex justify-center items-center">
 	<div class="flex flex-col justify-center items-center">
-		<div class="card w-96 bg-base-100 shadow-xl m-10 space-y-3">
+		<div class="card w-96 bg-base-200 shadow-xl m-10 space-y-3">
 			<div class="card-body">
 				<h1 class="card-title">Login</h1>
 				<label class="input input-bordered flex items-center gap-2">
