@@ -8,6 +8,7 @@
 	import TagField from '$lib/components/TagField.svelte';
 	import { notify } from '$lib/notificationHelper';
 	import Icon from '@iconify/svelte';
+	import { plugin } from 'postcss';
 	import { onMount } from 'svelte';
 
 	let tab = 0;
@@ -123,6 +124,12 @@
 			console.error(err);
 			notify.error('Server Error');
 		}
+	}
+
+	let selectedVersion = ''
+
+	function expandSelectedVersion(version: string) {
+		selectedVersion = version;
 	}
 
 	onMount(async () => {
@@ -276,35 +283,43 @@
 			<div class="card-body p-10 grow">
 				<div class="overflow-x-auto">
 					<table class="table table-zebra">
-						<!-- head -->
 						<thead>
 							<tr>
-								<!-- <th></th> -->
 								<th>Version</th>
-								<!-- <th>Job</th>
-                          <th>Favorite Color</th> -->
 							</tr>
 						</thead>
 						<tbody>
 							<!-- row 1 -->
 							{#each versionHistory.reverse() as versionHistoryEntry}
 								<!-- viewUpdateHistoryCode -->
-								<tr class="content-between w-full">
-									<th>{versionHistoryEntry}</th>
-									<td class="flex justify-end">
-										<button class="btn btn-primary" on:click={()=>{
-                                            notify.error('Not implemented yet');
-                                        }}> View Code </button>
+								<tr class="w-full">
+									<div class="content-between w-full flex items-center">
+										<th class="grow">{versionHistoryEntry}</th>
+										<td class="flex justify-end">
+											<button
+												class="btn btn-primary"
+												on:click={() => {
+													window.open(`/plugin?id=${pluginId}&v=${versionHistoryEntry}`, '_blank')
+													// console.log(versionHistoryEntry)
+													// expandSelectedVersion(versionHistoryEntry);
+												}}
+											>
+												View Code
+											</button>
 
-										<button
-											class="btn"
-											on:click={() => {
-												deleteSelectedVersion(versionHistoryEntry);
-											}}
+											<button
+												class="btn"
+												on:click={() => {
+													deleteSelectedVersion(versionHistoryEntry);
+												}}
+											>
+												<Icon icon="mdi:delete-outline" width={'2em'} height={'2em'} />
+											</button></td
 										>
-											<Icon icon="mdi:delete-outline" width={'2em'} height={'2em'} />
-										</button></td
-									>
+									</div>
+									<!-- {#if "1.0.1" == versionHistoryEntry}
+										<PluginCode showActions={false} code={selectedVersion}></PluginCode>
+									{/if} -->
 								</tr>
 							{/each}
 						</tbody>

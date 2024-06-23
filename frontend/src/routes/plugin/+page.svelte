@@ -25,6 +25,7 @@
 	onMount(async () => {
 		let params = new URLSearchParams(location.search);
 		pluginId = params.get('id') ?? '';
+
 		if (pluginId) {
 			let response = await fetch(`${BASE_DIR}/api/v1/plugins/${pluginId}`, {
 				headers: {
@@ -35,7 +36,7 @@
 
 			if (response.ok) {
 				selectedPluginData = await response.json();
-				selectedVersion = selectedPluginData?.current_version ?? '';
+				selectedVersion = params.get('v') ?? selectedPluginData?.current_version ?? '';
 				showCode();
 			} else {
 				let err = await response;

@@ -7,6 +7,8 @@
 
 	export let code = `//loading...`;
 
+	export let showActions = true;
+
 	let modal: HTMLDialogElement;
 
 	const copy = async () => {
@@ -15,20 +17,19 @@
 		}
 		try {
 			await navigator.clipboard.writeText(code);
-			
+
 			notify.success('Copied Plugin to clipboad');
-			
+
 			copyText = 'Copied!';
 			setTimeout(() => {
 				copyText = 'Copy';
 			}, 1000);
-
 		} catch (error) {
 			notify.error('Copy failed.');
 		}
 	};
 
-	let copyText : string = 'Copy';
+	let copyText: string = 'Copy';
 </script>
 
 <svelte:head>
@@ -36,18 +37,20 @@
 </svelte:head>
 
 <div>
-	<Highlight language={typescript} bind:code={code} let:highlighted>
+	<Highlight language={typescript} bind:code let:highlighted>
 		<LineNumbers {highlighted} hideBorder wrapLines />
 	</Highlight>
 	<div class="z-40 absolute top-0 right-0 m-2">
-		<button
-			type="submit"
-			class="btn"
-			on:click={() => {
-				modal.showModal();
-			}}>How To Install</button
-		>
-		<button type="submit" class="btn" on:click={copy}>{copyText}</button>
+		{#if showActions}
+			<button
+				type="submit"
+				class="btn"
+				on:click={() => {
+					modal.showModal();
+				}}>How To Install</button
+			>
+			<button type="submit" class="btn" on:click={copy}>{copyText}</button>
+		{/if}
 	</div>
 </div>
 
@@ -60,7 +63,8 @@
 			<mark class="text-accent bg-transparent">Plugins</mark>. Click that and click
 			<mark class="text-accent bg-transparent">Install plugins</mark>.
 			<mark class="text-accent bg-transparent">Paste in the code here and click install</mark>. It
-			<mark class="text-accent bg-transparent">may ask for some permissions, accept these</mark> and the plugin should work.
+			<mark class="text-accent bg-transparent">may ask for some permissions, accept these</mark> and
+			the plugin should work.
 		</p>
 		<div class="modal-action">
 			<form method="dialog">
