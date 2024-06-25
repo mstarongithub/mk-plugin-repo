@@ -26,6 +26,8 @@ const (
 	AUTH_NEEDS_MAIL
 )
 
+const AUTH_TOKEN_HEADER = "oauth-token"
+
 type Auth struct {
 	store              *storage.Storage
 	webAuth            *webauthn.WebAuthn
@@ -89,6 +91,7 @@ func (a *Auth) LoginWithPasskeyComplete() {}
 // Attempt a login using a username and password
 // Tries to prevent timing attacks at least a little
 // Returns the next state (a set of flags, see the AUTH_ constants, 0 == ok) and a string containing the process ID if mfa is required
+// If it only needs username-password and is ok, returns AUTH_SUCCESS and an access token valid for 24h
 func (a *Auth) LoginWithPassword(username, password string) (NextAuthState, string) {
 	time.Sleep(
 		(time.Millisecond * time.Duration(rand.Uint32())) % 250,
@@ -126,7 +129,12 @@ func (a *Auth) LoginWithPassword(username, password string) (NextAuthState, stri
 	}
 
 	if retFlag == AUTH_SUCCESS {
-		return AUTH_SUCCESS, ""
+		expireTime := time.Now().Add(time.Hour * 24)
+		token, err := a.generateToken(acc.ID, &expireTime)
+		if err != nil {
+			return AUTH_FAIL, ""
+		}
+		return AUTH_SUCCESS, token
 	}
 
 	requestID := username + fmt.Sprint(time.Now().Unix())
@@ -141,6 +149,7 @@ func (a *Auth) LoginWithPassword(username, password string) (NextAuthState, stri
 // Continue a login process started via a username + password combo
 // Takes the type of mfa as well as a token to check
 // Returns the next state (a set of flags, see the AUTH_ constants, 0 == ok) and a string containing the process ID if the process is not complete yet
+// If next state is ok, returns AUTH_SUCCESS and token expiring after 24h
 func (a *Auth) LoginWithMFA(
 	processID string,
 	token string,
@@ -172,6 +181,17 @@ func (a *Auth) LoginWithMFA(
 	}
 
 	process.NextState = process.NextState &^ mfaType // Disable completed mfa flag. Since 0 is the ok, all is ok
+
+	if process.NextState == AUTH_SUCCESS {
+		delete(a.activeAuthRequests, processID)
+		expires := time.Now().Add(time.Hour * 24)
+		token, err := a.generateToken(acc.ID, &expires)
+		if err != nil {
+			// Failed to generate token, undo auth action for retry
+			return process.NextState & mfaType, processID
+		}
+		return AUTH_SUCCESS, token
+	}
 	a.activeAuthRequests[processID] = process
 
 	return process.NextState, processID

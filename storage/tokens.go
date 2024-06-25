@@ -11,10 +11,11 @@ type Token struct {
 	gorm.Model
 	Token     string
 	UserID    uint
-	ExpiresAt time.Time
+	ExpiresAt *time.Time
 }
 
-func (storage *Storage) InsertNewToken(token Token) error {
+func (storage *Storage) InsertNewToken(ID uint, token string, ExpiresAt *time.Time) error {
+
 	res := storage.db.Create(&token)
 	return res.Error
 }

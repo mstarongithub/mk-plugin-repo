@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-pkgz/auth"
 	"github.com/rs/cors"
 	"github.com/sirupsen/logrus"
 
+	"github.com/mstarongithub/mk-plugin-repo/auth"
 	"github.com/mstarongithub/mk-plugin-repo/storage"
 )
 
@@ -23,25 +23,22 @@ type ServerContextKey string
 const (
 	CONTEXT_KEY_SERVER     = ServerContextKey("server")
 	CONTEXT_KEY_STORAGE    = ServerContextKey("storage")
-	CONTEXT_KEY_AUTHBOSS   = ServerContextKey("authboss")
 	CONTEXT_KEY_CSRF_TOKEN = ServerContextKey("csrf_token")
+	CONTEXT_KEY_AUTH_LAYER = ServerContextKey("auth-layer")
 )
 
 func NewServer(
 	frontendFS fs.FS,
 	store *storage.Storage,
-	authLayer *auth.Service,
+	authLayer *auth.Auth,
 ) (*Server, error) {
 	mainRouter := http.NewServeMux()
 
 	frontendRouter, _ := buildFrontendRouter(frontendFS)
 	apiRouter, _ := buildApiRouter(authLayer)
-	authRoutes, avatarRoutes := authLayer.Handlers()
 
 	mainRouter.Handle("/", frontendRouter)
 	mainRouter.Handle("/api/", http.StripPrefix("/api", apiRouter))
-	mainRouter.Handle("/auth/", http.StripPrefix("/auth", authRoutes))
-	mainRouter.Handle("/avatar/", http.StripPrefix("/avatar/", avatarRoutes))
 
 	server := Server{
 		storage:    store,
@@ -49,33 +46,18 @@ func NewServer(
 		frontendFS: frontendFS,
 	}
 
-	if authLayer != nil {
-		authMiddleware := authLayer.Middleware()
-		server.handler = ChainMiddlewares(
-			mainRouter,
-			ContextValsMiddleware(
-				map[any]any{
-					CONTEXT_KEY_SERVER:  &server,
-					CONTEXT_KEY_STORAGE: store,
-				},
-			),
-			cors.AllowAll().Handler,
-			authMiddleware.Trace,
-			WebLoggerWrapper,
-		)
-	} else {
-		server.handler = ChainMiddlewares(
-			mainRouter,
-			ContextValsMiddleware(
-				map[any]any{
-					CONTEXT_KEY_SERVER:  &server,
-					CONTEXT_KEY_STORAGE: store,
-				},
-			),
-			cors.AllowAll().Handler,
-			WebLoggerWrapper,
-		)
-	}
+	server.handler = ChainMiddlewares(
+		mainRouter,
+		ContextValsMiddleware(
+			map[any]any{
+				CONTEXT_KEY_SERVER:     &server,
+				CONTEXT_KEY_STORAGE:    store,
+				CONTEXT_KEY_AUTH_LAYER: authLayer,
+			},
+		),
+		cors.AllowAll().Handler,
+		WebLoggerWrapper,
+	)
 
 	return &server, nil
 }
@@ -108,25 +90,28 @@ func (s *Server) Run(addr string) error {
 }
 
 // NOTE: Error return value unused currently and can safely be ignored
-func buildApiRouter(authLayer *auth.Service) (http.Handler, error) {
+func buildApiRouter(authLayer *auth.Auth) (http.Handler, error) {
 	router := http.NewServeMux()
 
 	router.Handle("/v1/", http.StripPrefix("/v1", buildV1Router(authLayer)))
 	return router, nil
 }
 
-func buildV1Router(authLayer *auth.Service) http.Handler {
+func buildV1Router(authLayer *auth.Auth) http.Handler {
 	router := http.NewServeMux()
 
 	router.HandleFunc("GET /plugins", getPluginList)
 	router.HandleFunc("GET /plugins/{pluginId}", getSpecificPlugin)
 	router.HandleFunc("GET /plugins/{pluginId}/{versionName}", getVersion)
+
+	router.HandleFunc("/auth/password-start", AuthLoginPWHandler)
+	router.HandleFunc("POST /auth/mfa-continue", AuthLoginMfaHandler)
 	router.Handle("/", buildV1RestrictedRouter(authLayer))
 
 	return router
 }
 
-func buildV1RestrictedRouter(authLayer *auth.Service) http.Handler {
+func buildV1RestrictedRouter(authLayer *auth.Auth) http.Handler {
 	router := http.NewServeMux()
 
 	router.HandleFunc("POST /plugins", addNewPlugin)
@@ -137,10 +122,9 @@ func buildV1RestrictedRouter(authLayer *auth.Service) http.Handler {
 
 	var handler http.Handler
 	if authLayer != nil {
-		middleware := authLayer.Middleware()
 		handler = ChainMiddlewares(
 			router,
-			middleware.Auth,
+			TokenOrAuthMiddleware,
 		)
 	} else {
 		handler = router

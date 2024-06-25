@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 
+	"github.com/mstarongithub/mk-plugin-repo/auth"
 	"github.com/mstarongithub/mk-plugin-repo/storage"
 	customtypes "github.com/mstarongithub/mk-plugin-repo/storage/customTypes"
 )
@@ -27,6 +28,14 @@ func ServerFromRequest(r *http.Request) *Server {
 		store = nil
 	}
 	return store
+}
+
+func AuthFromRequestContext(r *http.Request) *auth.Auth {
+	a, ok := r.Context().Value(CONTEXT_KEY_AUTH_LAYER).(*auth.Auth)
+	if !ok {
+		a = nil
+	}
+	return a
 }
 
 func dbPluginToApiPlugin(plugin *storage.Plugin) Plugin {
