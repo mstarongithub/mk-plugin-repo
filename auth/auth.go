@@ -2,14 +2,14 @@ package auth
 
 import (
 	"fmt"
-	"math/rand"
 	"net/url"
 	"time"
 
 	"github.com/ermites-io/passwd"
 	"github.com/go-webauthn/webauthn/webauthn"
-	"github.com/pquerna/otp/totp"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/mstarongitlab/goutils/other"
+	"gorm.io/gorm"
 
 	"github.com/mstarongithub/mk-plugin-repo/config"
 	"github.com/mstarongithub/mk-plugin-repo/storage"
@@ -17,22 +17,22 @@ import (
 )
 
 type NextAuthState uint
+type AuthProviderMode uint8
 
-const (
-	AUTH_SUCCESS = NextAuthState(0)
-	AUTH_FAIL    = NextAuthState(1 << iota)
-	AUTH_NEEDS_FIDO
-	AUTH_NEEDS_TOTP
-	AUTH_NEEDS_MAIL
-)
-
-const AUTH_TOKEN_HEADER = "oauth-token"
+const AUTH_TOKEN_HEADER = "Authorization"
+const _TOKEN_AUTH_MODE_NONE = "token-for-mode-no-auth"
+const _TOKEN_DEV_ACCOUNT = "dev-account-token"
+const _DEV_ACCOUNT_USERNAME = "developer"
+const _DEV_ACCOUNT_PASSWORD = "developer"
 
 type Auth struct {
 	store              *storage.Storage
 	webAuth            *webauthn.WebAuthn
 	hasher             *passwd.Profile
 	activeAuthRequests map[string]TempAuthRequest
+	registerRequests   RegisterRequestHolder
+	authMode           AuthProviderMode
+	log                *logrus.Entry
 }
 
 type TempAuthRequest struct {
@@ -41,9 +41,23 @@ type TempAuthRequest struct {
 	NextState NextAuthState
 }
 
+const (
+	AUTH_SUCCESS = NextAuthState(0)
+	AUTH_FAIL    = NextAuthState(1 << (iota - 1))
+	AUTH_NEEDS_FIDO
+	AUTH_NEEDS_TOTP
+	AUTH_NEEDS_MAIL
+)
+
+const (
+	AUTH_MODE_DEFAULT = AuthProviderMode(0)
+	AUTH_MODE_DEV     = AuthProviderMode(1 << (iota - 1))
+	AUTH_MODE_NONE
+)
+
 // Create a new authentication manager
 // Requires a reference to a storage implementation
-func NewAuth(store *storage.Storage) (*Auth, error) {
+func NewAuth(store *storage.Storage, mode AuthProviderMode) (*Auth, error) {
 	if config.GlobalConfig == nil {
 		panic("Global config is nil!")
 	}
@@ -67,132 +81,71 @@ func NewAuth(store *storage.Storage) (*Auth, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create password hasher: %w", err)
 	}
-	hasher.SetKey([]byte(config.GlobalConfig.General.HashingSecret))
-
-	return &Auth{
+	_ = hasher.SetKey([]byte(config.GlobalConfig.General.HashingSecret))
+	a := Auth{
 		store:              store,
 		webAuth:            webAuth,
 		hasher:             hasher,
 		activeAuthRequests: map[string]TempAuthRequest{},
-	}, nil
+		log:                logrus.WithField("layer", "auth"),
+		authMode:           mode,
+		registerRequests: RegisterRequestHolder{
+			Requests: map[string]RegisterProcess{},
+		},
+	}
+	a.insertSuAccount()
+	if mode == AUTH_MODE_DEV {
+		a.insertDevAccount()
+	}
+
+	return &a, nil
 }
 
-// TODO: Implement these two
-
-// Start a login attempt using a passkey
-// NOTE: Not implemented yet signature will also change
-func (a *Auth) LoginWithPasskeyStart() {}
-
-// Complete a login attempt with a passkey
-// Requires that attempt to be started by a call to LoginWithPasskeyStart
-// NOTE: Not implemented yet, signature will also change
-func (a *Auth) LoginWithPasskeyComplete() {}
-
-// Attempt a login using a username and password
-// Tries to prevent timing attacks at least a little
-// Returns the next state (a set of flags, see the AUTH_ constants, 0 == ok) and a string containing the process ID if mfa is required
-// If it only needs username-password and is ok, returns AUTH_SUCCESS and an access token valid for 24h
-func (a *Auth) LoginWithPassword(username, password string) (NextAuthState, string) {
-	time.Sleep(
-		(time.Millisecond * time.Duration(rand.Uint32())) % 250,
-	) // Sleep a random amount of time between 0 and 250ms. Fuck those timing attacks
-
-	acc, err := a.store.FindAccountByName(username)
+func (a *Auth) insertDevAccount() {
+	err := a.store.UpdateAccount(&storage.Account{
+		Model: gorm.Model{
+			ID:        0,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		Name: "developer",
+		PasswordHash: []byte(
+			"$2id$CKXfPfWzlGPT1xUOZ5k.4u$1$65536$16$32$uih.e8WZNJ8PWj6Z.axzh0SARgRjXjnP.p5JWs36c6K",
+		),
+		Mail:              other.IntoPointer("developer@example.com"),
+		Links:             customtypes.GenericSlice[string]{"example.com"},
+		Description:       "Developer account. Only exists in the build with the flag authDev",
+		CanApprovePlugins: true,
+		CanApproveUsers:   true,
+		PluginsOwned:      make(customtypes.GenericSlice[uint], 0),
+		Approved:          true,
+		AuthMethods:       customtypes.AUTH_METHOD_PASSWORD,
+		FidoToken:         nil,
+		TotpToken:         nil,
+		Passkeys:          make(map[string]string),
+	})
 	if err != nil {
-		logrus.WithError(err).
-			WithField("username", username).
-			Infoln("Couldn't find account for login request")
-		return AUTH_FAIL, ""
+		panic(err)
 	}
-
-	if acc.AuthMethods == customtypes.AUTH_METHOD_NONE {
-		return AUTH_SUCCESS, ""
-	}
-	if !customtypes.AuthIsFlagSet(acc.AuthMethods, customtypes.AUTH_METHOD_PASSWORD) {
-		return AUTH_FAIL, ""
-	}
-
-	if a.hasher.Compare(acc.PasswordHash, []byte(password)) != nil {
-		return AUTH_FAIL, ""
-	}
-
-	retFlag := AUTH_SUCCESS // Because this is the 0 state
-	if customtypes.AuthIsFlagSet(acc.AuthMethods, customtypes.AUTH_METHOD_FIDO) {
-		retFlag = retFlag | AUTH_NEEDS_FIDO
-	}
-	if customtypes.AuthIsFlagSet(acc.AuthMethods, customtypes.AUTH_METHOD_TOTP) {
-		retFlag = retFlag | AUTH_NEEDS_TOTP
-	}
-	if retFlag == 0 && customtypes.AuthIsFlagSet(acc.AuthMethods, customtypes.AUTH_METHOD_MAIL) {
-		// TODO: Send mail with code here
-		retFlag = retFlag | AUTH_NEEDS_MAIL
-	}
-
-	if retFlag == AUTH_SUCCESS {
-		expireTime := time.Now().Add(time.Hour * 24)
-		token, err := a.generateToken(acc.ID, &expireTime)
-		if err != nil {
-			return AUTH_FAIL, ""
-		}
-		return AUTH_SUCCESS, token
-	}
-
-	requestID := username + fmt.Sprint(time.Now().Unix())
-	a.activeAuthRequests[requestID] = TempAuthRequest{
-		AuthID:    requestID,
-		AccountID: acc.ID,
-		NextState: retFlag,
-	}
-	return retFlag, requestID
 }
 
-// Continue a login process started via a username + password combo
-// Takes the type of mfa as well as a token to check
-// Returns the next state (a set of flags, see the AUTH_ constants, 0 == ok) and a string containing the process ID if the process is not complete yet
-// If next state is ok, returns AUTH_SUCCESS and token expiring after 24h
-func (a *Auth) LoginWithMFA(
-	processID string,
-	token string,
-	mfaType NextAuthState,
-) (NextAuthState, string) {
-	process, ok := a.activeAuthRequests[processID]
-	if !ok {
-		return AUTH_FAIL, ""
+func (a *Auth) insertSuAccount() {
+	if !config.GlobalConfig.Superuser.Enabled {
+		return
 	}
-	if !customtypes.AuthIsFlagSet(
-		customtypes.AuthMethods(process.NextState),
-		customtypes.AuthMethods(mfaType),
-	) {
-		return AUTH_FAIL, ""
+	acc := storage.Account{
+		Name: config.GlobalConfig.Superuser.Username,
 	}
-	acc, _ := a.store.FindAccountByID(process.AccountID)
-
-	switch mfaType {
-	case AUTH_NEEDS_FIDO:
-		// TODO: Implement this
-		panic("MFA Fido not implemented yet")
-	case AUTH_NEEDS_TOTP:
-		if !totp.Validate(token, *acc.TotpToken) {
-			return AUTH_FAIL, ""
-		}
-	case AUTH_NEEDS_MAIL:
-		// TODO: Implement this, this'll be pain
-		panic("MFA Mail not implemented yet")
-	}
-
-	process.NextState = process.NextState &^ mfaType // Disable completed mfa flag. Since 0 is the ok, all is ok
-
-	if process.NextState == AUTH_SUCCESS {
-		delete(a.activeAuthRequests, processID)
-		expires := time.Now().Add(time.Hour * 24)
-		token, err := a.generateToken(acc.ID, &expires)
+	if config.GlobalConfig.Superuser.PasswordIsRaw != nil &&
+		*config.GlobalConfig.Superuser.PasswordIsRaw {
+		hashed, err := a.hasher.Hash([]byte(config.GlobalConfig.Superuser.Password))
 		if err != nil {
-			// Failed to generate token, undo auth action for retry
-			return process.NextState & mfaType, processID
+			panic("Failed to hash superuser password!")
 		}
-		return AUTH_SUCCESS, token
+		acc.PasswordHash = hashed
 	}
-	a.activeAuthRequests[processID] = process
-
-	return process.NextState, processID
+	err := a.store.UpdateAccount(&acc)
+	if err != nil {
+		logrus.WithError(err).Fatalln("Failed to insert/update superuser account")
+	}
 }

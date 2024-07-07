@@ -9,11 +9,14 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+
+	"github.com/mstarongithub/mk-plugin-repo/util"
 )
 
 type Storage struct {
-	db     *gorm.DB
-	tokens map[uint][]string
+	db                   *gorm.DB
+	tokens               util.MutexMap[uint, []string]
+	serviceWorkersActive util.MutexMap[string, bool]
 }
 
 var ErrVersionNotFound = errors.New("version not found")
@@ -22,16 +25,21 @@ var ErrAlreadyExists = errors.New("entry already exists")
 var ErrUnknown = errors.New("unknown problem occured")
 var ErrUnauthorised = errors.New("action is unauthorised")
 
-func NewStorage(sqliteFile string, customConfig *gorm.Config) (storage Storage, err error) {
+func NewStorage(sqliteFile string, customConfig *gorm.Config) (storage *Storage, err error) {
 	if customConfig == nil {
 		logrus.Infoln("No gorm config provided, using default")
 		customConfig = &gorm.Config{
 			Logger: logger.New(logrus.StandardLogger(), logger.Config{
-				SlowThreshold: time.Second,
-				LogLevel:      logger.Error,
-				Colorful:      false,
+				SlowThreshold:             time.Second,
+				LogLevel:                  logger.Error,
+				Colorful:                  false,
+				IgnoreRecordNotFoundError: true,
 			}),
 		}
+	}
+	storage = &Storage{
+		serviceWorkersActive: util.NewMutexMap[string, bool](),
+		tokens:               util.NewMutexMap[uint, []string](),
 	}
 	db, err := gorm.Open(sqlite.Open(sqliteFile), customConfig)
 	if err != nil {
@@ -50,14 +58,19 @@ func NewStorage(sqliteFile string, customConfig *gorm.Config) (storage Storage, 
 		// TODO: Add logging
 		return storage, fmt.Errorf("migration failed: %w", err)
 	}
-	// TODO: Add logging
-	db.FirstOrCreate(&Account{
-		Model: gorm.Model{
-			ID: 12345,
-		},
-		Approved: true,
-	})
 	storage.db = db
-	storage.tokens = map[uint][]string{}
 	return storage, nil
+}
+
+func (storage *Storage) LaunchMiniServices() func() {
+	exitChanOldTokens := make(chan any)
+	exitChanOldData := make(chan any)
+	go storage.serviceCleanOldTokens(exitChanOldTokens)
+	go storage.serviceGdprCleanOldDeletedData(exitChanOldData)
+	return func() {
+		exitChanOldData <- 1
+		exitChanOldTokens <- 1
+		close(exitChanOldData)
+		close(exitChanOldTokens)
+	}
 }

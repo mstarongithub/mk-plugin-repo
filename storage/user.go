@@ -12,13 +12,18 @@ import (
 // A user account. Profile images are matched by ID
 type Account struct {
 	gorm.Model
-	CanApprovePlugins bool   // Can this account approve new plugin requests?
-	CanApproveUsers   bool   // Can this account approve account creation requests?
-	Name              string // Name of the account, NOT THE ID
+
+	// ---- Section User data
+	Name        string  // Name of the account, NOT THE ID
+	Mail        *string // Email linked to the account
+	Links       customtypes.GenericSlice[string]
+	Description string // A description of the account, added by the user. Not necessary
+
+	// ---- Section access control
+	CanApprovePlugins bool // Can this account approve new plugin requests?
+	CanApproveUsers   bool // Can this account approve account creation requests?
 	// Custom links the user has added to the account
 	// This can be things like Fedi profile, personal webpage, etc
-	Links        customtypes.GenericSlice[string]
-	Description  string                         // A description of the account, added by the user. Not necessary
 	PluginsOwned customtypes.GenericSlice[uint] // IDs of plugins this account owns (has created)
 	Approved     bool                           // Is this account approved for performing any actions
 
@@ -62,4 +67,17 @@ func (s *Storage) FindAccountByID(id uint) (*Account, error) {
 	}
 	// TODO: Add logging
 	return &acc, nil
+}
+
+func (s *Storage) AddNewAccount(acc Account) (uint, error) {
+	res := s.db.Create(&acc)
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	return acc.ID, nil
+}
+
+func (s *Storage) UpdateAccount(acc *Account) error {
+	res := s.db.Save(acc)
+	return res.Error
 }

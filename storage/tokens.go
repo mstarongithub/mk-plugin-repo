@@ -11,10 +11,15 @@ type Token struct {
 	gorm.Model
 	Token     string
 	UserID    uint
-	ExpiresAt *time.Time
+	ExpiresAt time.Time
 }
 
-func (storage *Storage) InsertNewToken(ID uint, token string, ExpiresAt *time.Time) error {
+func (storage *Storage) InsertNewToken(ID uint, tokenString string, ExpiresAt time.Time) error {
+	token := Token{
+		Token:     tokenString,
+		UserID:    ID,
+		ExpiresAt: ExpiresAt,
+	}
 
 	res := storage.db.Create(&token)
 	return res.Error
@@ -54,4 +59,9 @@ func (storage *Storage) FindToken(tokenString string) (*Token, error) {
 		return nil, fmt.Errorf("couldn'T find token: %w", res.Error)
 	}
 	return &token, nil
+}
+
+func (storage *Storage) ExtendToken(token *Token) error {
+	res := storage.db.Where("id = ?", token.ID).Update("expires_at", token.ExpiresAt)
+	return res.Error
 }

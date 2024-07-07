@@ -1,4 +1,15 @@
-root_url = "localhost:8080"
+[general]
+root_url = "http://localhost:8080"
+hash_secret = "some super secure secret"
 
-[ssl_config]
+[ssl]
 handle_ssl_in_app = false
+
+[webauth]
+display_name = "Mk plugin repo"
+
+[superuser]
+enabled = true
+username = "superuser"
+password = "sudo password"
+password_is_raw = true

@@ -28,14 +28,8 @@ type NewVersion struct {
 // Get the details for a specific version
 // Returns a json formatted VersionData on success
 func getVersion(w http.ResponseWriter, r *http.Request) {
-	store := StorageFromRequest(r)
+	store := StorageFromRequest(w, r)
 	if store == nil {
-		logrus.Errorln("getVersion: Failed to get storage from request context")
-		http.Error(
-			w,
-			"failed to get storage layer from request context",
-			http.StatusInternalServerError,
-		)
 		return
 	}
 	pluginIDString := r.PathValue("pluginId")
@@ -96,26 +90,10 @@ func getVersion(w http.ResponseWriter, r *http.Request) {
 // Expects json formatted NewVersion
 // Returns 4xx (whatever the bad request status is) if the version already exists
 func newVersion(w http.ResponseWriter, r *http.Request) {
-	store := StorageFromRequest(r)
+	store := StorageFromRequest(w, r)
 	if store == nil {
-		logrus.Errorln("newVersion: Failed to get storage from request context")
-		http.Error(
-			w,
-			"failed to get storage layer from request context",
-			http.StatusInternalServerError,
-		)
 		return
 	}
-	// ab := AuthbossFromRequest(r)
-	// if ab == nil {
-	// 	logrus.Errorln("newVersion: Failed to get authboss instance from request context")
-	// 	http.Error(
-	// 		w,
-	// 		"failed to get auth layer from request context",
-	// 		http.StatusInternalServerError,
-	// 	)
-	// 	return
-	// }
 	pluginIDString := r.PathValue("pluginId")
 	if pluginIDString == "" {
 		logrus.WithFields(logrus.Fields{
@@ -172,16 +150,11 @@ func newVersion(w http.ResponseWriter, r *http.Request) {
 // RESTRICTED
 // Hide a version. Doesn't delete, just hides it from the API
 func hideVersion(w http.ResponseWriter, r *http.Request) {
-	store := StorageFromRequest(r)
+	store := StorageFromRequest(w, r)
 	if store == nil {
-		logrus.Errorln("getVersion: Failed to get storage from request context")
-		http.Error(
-			w,
-			"failed to get storage layer from request context",
-			http.StatusInternalServerError,
-		)
 		return
 	}
+
 	pluginIDString := r.PathValue("pluginId")
 	versionName := r.PathValue("versionName")
 	if pluginIDString == "" || versionName == "" {

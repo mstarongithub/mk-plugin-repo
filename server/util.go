@@ -3,6 +3,8 @@ package server
 import (
 	"net/http"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/mstarongithub/mk-plugin-repo/auth"
 	"github.com/mstarongithub/mk-plugin-repo/storage"
 	customtypes "github.com/mstarongithub/mk-plugin-repo/storage/customTypes"
@@ -14,28 +16,49 @@ const (
 	PLUGIN_TYPE_INVALID = "invalid"
 )
 
-func StorageFromRequest(r *http.Request) *storage.Storage {
+func StorageFromRequest(w http.ResponseWriter, r *http.Request) *storage.Storage {
 	store, ok := r.Context().Value(CONTEXT_KEY_STORAGE).(*storage.Storage)
 	if !ok {
-		store = nil
+		http.Error(w, "no storage in request context", http.StatusInternalServerError)
+		return nil
 	}
 	return store
 }
 
-func ServerFromRequest(r *http.Request) *Server {
+func ServerFromRequest(w http.ResponseWriter, r *http.Request) *Server {
 	store, ok := r.Context().Value(CONTEXT_KEY_SERVER).(*Server)
 	if !ok {
-		store = nil
+		http.Error(w, "no server in request context", http.StatusInternalServerError)
+		return nil
 	}
 	return store
 }
 
-func AuthFromRequestContext(r *http.Request) *auth.Auth {
+func AuthFromRequestContext(w http.ResponseWriter, r *http.Request) *auth.Auth {
 	a, ok := r.Context().Value(CONTEXT_KEY_AUTH_LAYER).(*auth.Auth)
 	if !ok {
-		a = nil
+		http.Error(w, "no auth in request context", http.StatusInternalServerError)
+		return nil
 	}
 	return a
+}
+
+func LogFromRequestContext(w http.ResponseWriter, r *http.Request) *logrus.Entry {
+	a, ok := r.Context().Value(CONTEXT_KEY_LOG).(*logrus.Entry)
+	if !ok {
+		http.Error(w, "no logger in request context", http.StatusInternalServerError)
+		return nil
+	}
+	return a
+}
+
+func AccIdFromRequestContext(w http.ResponseWriter, r *http.Request) *uint {
+	a, ok := r.Context().Value(CONTEXT_KEY_ACTOR_ID).(uint)
+	if !ok {
+		http.Error(w, "no account ID in request context", http.StatusInternalServerError)
+		return nil
+	}
+	return &a
 }
 
 func dbPluginToApiPlugin(plugin *storage.Plugin) Plugin {

@@ -25,6 +25,8 @@ const (
 	CONTEXT_KEY_STORAGE    = ServerContextKey("storage")
 	CONTEXT_KEY_CSRF_TOKEN = ServerContextKey("csrf_token")
 	CONTEXT_KEY_AUTH_LAYER = ServerContextKey("auth-layer")
+	CONTEXT_KEY_LOG        = ServerContextKey("logging")
+	CONTEXT_KEY_ACTOR_ID   = ServerContextKey("actor-id")
 )
 
 func NewServer(
@@ -56,6 +58,7 @@ func NewServer(
 			},
 		),
 		cors.AllowAll().Handler,
+		RouteBasedLoggingMiddleware,
 		WebLoggerWrapper,
 	)
 
@@ -104,8 +107,15 @@ func buildV1Router(authLayer *auth.Auth) http.Handler {
 	router.HandleFunc("GET /plugins/{pluginId}", getSpecificPlugin)
 	router.HandleFunc("GET /plugins/{pluginId}/{versionName}", getVersion)
 
-	router.HandleFunc("/auth/password-start", AuthLoginPWHandler)
-	router.HandleFunc("POST /auth/mfa-continue", AuthLoginMfaHandler)
+	router.HandleFunc("/auth/login/start", AuthLoginPWHandler)
+	router.HandleFunc("POST /auth/login/mfa", AuthLoginMfaHandler)
+
+	router.HandleFunc("POST /auth/register/start", authRegisterStartHandler)
+	router.HandleFunc("POST /auth/register/password", authRegisterAddPasswordHandler)
+	router.HandleFunc("POST /auth/register/mail", authRegisterAddMailHandler)
+	router.HandleFunc("POST /auth/register/description", authRegisterAddDescriptionHandler)
+	router.HandleFunc("POST /auth/register/finalise", authRegisterFinaliseHandler)
+	router.HandleFunc("POST /auth/register/cancel", authRegisterCancelHandler)
 	router.Handle("/", buildV1RestrictedRouter(authLayer))
 
 	return router

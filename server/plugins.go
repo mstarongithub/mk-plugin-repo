@@ -65,10 +65,8 @@ type UpdatePluginData struct {
 // - tags: semicolon separated list of tags that must be included
 // TODO: Change return value to paginated version using PluginList
 func getPluginList(w http.ResponseWriter, r *http.Request) {
-	store := StorageFromRequest(r)
+	store := StorageFromRequest(w, r)
 	if store == nil {
-		logrus.Errorln("Couldn't get storage from context")
-		http.Error(w, "couldn't get storage from request context", http.StatusInternalServerError)
 		return
 	}
 	dbPlugins := store.GetAllPlugins()
@@ -101,22 +99,15 @@ func getPluginList(w http.ResponseWriter, r *http.Request) {
 // New plugins will only be available after approval from an admin
 // Body must be a json version of NewPluginData
 func addNewPlugin(w http.ResponseWriter, r *http.Request) {
-	store := StorageFromRequest(r)
-	// ab := AuthbossFromRequest(r)
+	store := StorageFromRequest(w, r)
 	if store == nil {
-		logrus.Errorln("addNewPlugin: Couldn't get storage from request context")
-		http.Error(w, "couldn't get storage from request context", http.StatusInternalServerError)
 		return
 	}
-	// if ab == nil {
-	// logrus.Errorln("addNewPlugin: Couldn't get auth layer from request context")
-	// 	http.Error(
-	// 		w,
-	// 		"couldn't get auth layer from request context",
-	// 		http.StatusInternalServerError,
-	// 	)
-	// 	return
-	// }
+	actorId := AccIdFromRequestContext(w, r)
+	if actorId == nil {
+		return
+	}
+
 	body, _ := io.ReadAll(r.Body)
 
 	newPlugin := NewPluginData{}
@@ -132,18 +123,6 @@ func addNewPlugin(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	// Get user ID to use as author id
-	// stringUID, _ := ab.CurrentUserID(r)
-	stringUID := "12345" // FIX: Remove this line and uncomment the one above. This is for debug purposes
-	uid, err := strconv.ParseUint(stringUID, 10, 0)
-	if err != nil {
-		logrus.WithError(err).
-			WithField("userID", stringUID).
-			Infoln("Failed to parse userId. Refusing access")
-		http.Error(w, "invalid user id", http.StatusUnauthorized)
-		return
-	}
-
 	// And now parse the plugin type
 	var pluginType customtypes.PluginType
 	switch newPlugin.Type {
@@ -155,11 +134,11 @@ func addNewPlugin(w http.ResponseWriter, r *http.Request) {
 	// Then try throwing it into the db
 	logrus.WithFields(logrus.Fields{
 		"plugin": newPlugin,
-		"uid":    uid,
+		"uid":    *actorId,
 	}).Debugln("Attempting to add plugin to db")
 	_, err = store.NewPlugin(
 		newPlugin.Name,
-		uint(uid),
+		*actorId,
 		newPlugin.InitialVersion,
 		newPlugin.SummaryLong,
 		newPlugin.SummaryShort,
@@ -182,20 +161,19 @@ func addNewPlugin(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/plugins/{pluginId}
 // Get a specific plugin, specified by {plugin-id}
 func getSpecificPlugin(w http.ResponseWriter, r *http.Request) {
-	store := StorageFromRequest(r)
+	store := StorageFromRequest(w, r)
 	if store == nil {
-		// TODO: Add logging
-		http.Error(
-			w,
-			"couldn't get data layer from request context",
-			http.StatusInternalServerError,
-		)
+		return
+	}
+	log := LogFromRequestContext(w, r)
+	if log == nil {
 		return
 	}
 
 	pluginID := r.PathValue("pluginId")
 	if pluginID == "" {
-		// TODO: Add logging
+		// TODO: Add stat collection
+		// Not necessary to log this case
 		http.Error(
 			w,
 			"missing plugin id. Endpoint usage: GET /api/v1/plugins/{plugin-id}",
@@ -205,16 +183,21 @@ func getSpecificPlugin(w http.ResponseWriter, r *http.Request) {
 	}
 	pID, err := strconv.ParseUint(pluginID, 10, 0)
 	if err != nil {
-		// TODO: Add logging
+		// TODO: Add stat collection
+		// Not necessary to log this case
 		http.Error(w, "bad plugin ID", http.StatusBadRequest)
 		return
 	}
+	log.WithField("plugin-id", pID).Infoln("Requested public plugin data")
+
 	storagePlugin, err := store.GetPluginByID(uint(pID))
 	if err != nil {
-		// TODO: Add logging
+		// TODO: Add stat collection
 		if errors.Is(err, storage.ErrPluginNotFound) {
+			// Not necessary to log this case
 			http.Error(w, "plugin not found", http.StatusNotFound)
 		} else {
+			log.WithError(err).WithField("plugin-id", pID).Warningln("Failed to get plugin from storage layer")
 			http.Error(w, "error getting plugin from storage layer", http.StatusInternalServerError)
 		}
 		return
@@ -222,11 +205,10 @@ func getSpecificPlugin(w http.ResponseWriter, r *http.Request) {
 	apiPlugin := dbPluginToApiPlugin(storagePlugin)
 	jbody, err := json.Marshal(&apiPlugin)
 	if err != nil {
-		// TODO: Add logging
+		log.WithError(err).WithField("plugin-id", pID).Warning("Failed to encode result to json")
 		http.Error(w, "json encoding failed", http.StatusInternalServerError)
 		return
 	}
-	// TODO: Add logging: Plugin requested
 	w.Write(jbody)
 }
 
@@ -234,37 +216,24 @@ func getSpecificPlugin(w http.ResponseWriter, r *http.Request) {
 // RESTRICTED
 // Update a specific plugin
 func updateSpecificPlugin(w http.ResponseWriter, r *http.Request) {
-	store := StorageFromRequest(r)
-	// ab := AuthbossFromRequest(r)
+	store := StorageFromRequest(w, r)
 	if store == nil {
-		// TODO: Add logging
-		http.Error(w, "couldn't get storage from request context", http.StatusInternalServerError)
 		return
 	}
-	// if ab == nil {
-	//  // TODO: Add logging
-	// 	http.Error(
-	// 		w,
-	// 		"couldn't get auth layer from request context",
-	// 		http.StatusInternalServerError,
-	// 	)
-	// 	return
-	// }
+	log := LogFromRequestContext(w, r)
+	if log == nil {
+		return
+	}
+	accId := AccIdFromRequestContext(w, r)
+	if accId == nil {
+		return
+	}
 
 	// Get and parse user id and plugin id
-	//suID, _ := ab.CurrentUserID(r)
-	suID := "12345" // FIX: Remove this line and uncomment the one above. This is for debug purposes
-	uid, err := strconv.ParseUint(suID, 10, 0)
-	if err != nil {
-		// TODO: Add logging
-		http.Error(w, "bad authentication", http.StatusUnauthorized)
-		return
-	}
 
 	pluginString := r.PathValue("pluginId")
 	pluginID, err := strconv.ParseUint(pluginString, 10, 0)
 	if err != nil {
-		// TODO: Add logging
 		http.Error(w, "bad plugin id. Must be a uint", http.StatusBadRequest)
 		return
 	}
@@ -274,26 +243,27 @@ func updateSpecificPlugin(w http.ResponseWriter, r *http.Request) {
 	plugin, err := store.GetPluginByID(uint(pluginID))
 	if err != nil {
 		if errors.Is(err, storage.ErrPluginNotFound) {
-			// TODO: Add logging
 			http.Error(w, "plugin not found", http.StatusNotFound)
 		} else {
-			// TODO: Add logging
+			log.WithError(err).WithField("plugin-id", pluginID).Warningln("Failed to get plugin from storage layer")
 			http.Error(w, "problem getting plugin from storage layer", http.StatusInternalServerError)
 		}
 		return
 	}
 	// Check if the user authenticated is actually allowed to edit this plugin (aka is the owner)
-	if plugin.AuthorID != uint(uid) {
-		// TODO: Add logging
+	if plugin.AuthorID != *accId {
 		http.Error(w, "you're not the owner of the plugin", http.StatusUnauthorized)
 		return
 	}
 
 	body, _ := io.ReadAll(r.Body) // FIXME: Properly handle error
 	updateData := UpdatePluginData{}
-	_ = json.Unmarshal(body, &updateData) // FIXME: Properly handle error
+	err = json.Unmarshal(body, &updateData)
+	if err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
 
-	// TODO: Add logging: What to update
 	if updateData.Name != nil {
 		plugin.Name = *updateData.Name
 	}
@@ -315,7 +285,6 @@ func updateSpecificPlugin(w http.ResponseWriter, r *http.Request) {
 		plugin.SummaryLong = *updateData.SummaryLong
 	}
 
-	// TODO: Add logging: Update action
 	_ = store.UpdatePlugin(plugin)
 }
 
@@ -324,43 +293,25 @@ func updateSpecificPlugin(w http.ResponseWriter, r *http.Request) {
 // Delete a specific plugin
 // Note: Won't actually delete, but marked to no longer be displayed
 func deleteSpecificPlugin(w http.ResponseWriter, r *http.Request) {
-	store := StorageFromRequest(r)
-	// ab := AuthbossFromRequest(r)
+	store := StorageFromRequest(w, r)
 	if store == nil {
-		// TODO: Add logging
-		http.Error(w, "couldn't get storage from request context", http.StatusInternalServerError)
 		return
 	}
-	// if ab == nil {
-	//  // TODO: Add logging
-	// 	http.Error(
-	// 		w,
-	// 		"couldn't get auth layer from request context",
-	// 		http.StatusInternalServerError,
-	// 	)
-	// 	return
-	// }
+	accId := AccIdFromRequestContext(w, r)
+	if accId == nil {
+		return
+	}
 
 	// Get and parse user id and plugin id
-	//suID, _ := ab.CurrentUserID(r)
-	suID := "12345" // FIX: Remove this line and uncomment the one above. This is for debug purposes
-	uid, err := strconv.ParseUint(suID, 10, 0)
-	if err != nil {
-		// TODO: Add logging
-		http.Error(w, "bad authentication", http.StatusUnauthorized)
-		return
-	}
-
 	pluginString := r.PathValue("pluginId")
 	pluginID, err := strconv.ParseUint(pluginString, 10, 0)
 	if err != nil {
-		// TODO: Add logging
 		http.Error(w, "bad plugin id. Must be a uint", http.StatusBadRequest)
 		return
 	}
 
 	// TODO: Add logging: About to attempt plugin deletion with plugin and user id
-	err = store.DeletePlugin(uint(pluginID), uint(uid))
+	err = store.DeletePlugin(uint(pluginID), *accId)
 	if err != nil {
 		// TODO: Add logging
 		http.Error(w, "couldn't delete plugin", http.StatusInternalServerError)

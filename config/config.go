@@ -33,22 +33,27 @@ type ConfigSSL struct {
 	CustomCertificatePath *string `toml:"custom_certificate_path"`
 }
 
-type ConfigAuthProvider struct {
-	ID     string `toml:"id"`
-	Secret string `toml:"secret"`
-}
-
-type ConfigOauth struct {
-	Github    *ConfigAuthProvider `toml:"github,omitempty"`
-	Twitter   *ConfigAuthProvider `toml:"twitter,omitempty"`
-	Microsoft *ConfigAuthProvider `toml:"microsoft,omitempty"`
-	Patreon   *ConfigAuthProvider `toml:"patreon,omitempty"`
-	Google    *ConfigAuthProvider `toml:"google,omitempty"`
-}
-
 type ConfigWebauth struct {
-	DisplayName string
+	DisplayName string `toml:"display_name"`
 	// ID can be extracted from root url
+}
+
+// Superuser data
+// Note: Will be overwritten in dev mode since su and dev share the same ID of 0
+type ConfigSuperuser struct {
+	Enabled  bool   `toml:"enabled"`
+	Username string `toml:"username"`
+	// Password is argon2id encrypted using the default settings of the github.com/ermites-io/passwd Argon2IdDefault config
+	// The params this uses for Argon2Id are:
+	// - Time:    1
+	// - Memory:  64 * 1024
+	// - Threads: 8
+	// - SaltLen: 16
+	// - Keylen:  32
+	Password string `toml:"password"`
+	// If set and true, the previous comment can be ignored as the password will be handled as if it was raw
+	// Note: Pleas don't use this and instead offer an already hashed password for increased safety
+	PasswordIsRaw *bool `toml:"password_is_raw"`
 }
 
 type Config struct {
@@ -58,6 +63,8 @@ type Config struct {
 	SslConfig ConfigSSL `toml:"ssl"`
 	// Webauth config. Required
 	WebAuth ConfigWebauth `toml:"webauth"`
+	// Superuser account config. Required
+	Superuser ConfigSuperuser `toml:"superuser"`
 }
 
 func ReadConfig(fileName *string) (Config, error) {

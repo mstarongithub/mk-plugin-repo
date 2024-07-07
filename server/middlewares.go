@@ -3,9 +3,12 @@ package server
 import (
 	"context"
 	"net/http"
+	"strings"
+
+	"github.com/sirupsen/logrus"
+	"gitlab.com/mstarongitlab/weblogger"
 
 	"github.com/mstarongithub/mk-plugin-repo/auth"
-	"gitlab.com/mstarongitlab/weblogger"
 )
 
 type HandlerBuilder func(http.Handler) http.Handler
@@ -43,20 +46,28 @@ func WebLoggerWrapper(h http.Handler) http.Handler {
 func TokenOrAuthMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// First we need the auth layer to use
-		authLayer := AuthFromRequestContext(r)
+		authLayer := AuthFromRequestContext(w, r)
 		if authLayer == nil {
-			http.Error(w, "missing auth reference in request", http.StatusInternalServerError)
+			return
+		}
+		store := StorageFromRequest(w, r)
+		if store == nil {
+			return
+		}
+		log := LogFromRequestContext(w, r)
+		if log == nil {
 			return
 		}
 		// For the authentication, check the existence of a token first
 		// If there is a token, ignore basic auth and fail if the token is false
 		token := r.Header.Get(auth.AUTH_TOKEN_HEADER)
-		if token != "" {
-			if !authLayer.CheckToken(token) {
+		if strings.TrimPrefix(token, "Bearer ") != "" {
+			accId, ok := authLayer.CheckToken(token)
+			if !ok {
 				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 				return
 			} else {
-				h.ServeHTTP(w, r)
+				h.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), CONTEXT_KEY_ACTOR_ID, accId)))
 				return
 			}
 		}
@@ -71,6 +82,31 @@ func TokenOrAuthMiddleware(h http.Handler) http.Handler {
 			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 			return
 		}
-		h.ServeHTTP(w, r)
+
+		acc, err := store.FindAccountByName(username)
+		if err != nil {
+			log.WithError(err).
+				WithField("middleware", "authentication").
+				Warningln("Completed authentication but failed to get account afterwards")
+			http.Error(
+				w,
+				"Failed to get account after authentication",
+				http.StatusInternalServerError,
+			)
+		}
+
+		h.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), CONTEXT_KEY_ACTOR_ID, acc.ID)))
+	})
+}
+
+func RouteBasedLoggingMiddleware(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		newRequest := r.WithContext(context.WithValue(
+			ctx,
+			CONTEXT_KEY_LOG,
+			logrus.WithField("url-path", r.URL.Path),
+		))
+		h.ServeHTTP(w, newRequest)
 	})
 }

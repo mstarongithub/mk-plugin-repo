@@ -11,7 +11,7 @@ import (
 
 type AuthStateReturn struct {
 	State            int    `json:"state"`
-	ProcessIDorToken string `json:"process_i_dor_token"`
+	ProcessIDorToken string `json:"process_id_or_token"`
 }
 
 type AuthMfaKey struct {
@@ -22,9 +22,8 @@ type AuthMfaKey struct {
 
 // Mounts at /api/v1/auth/password-start
 func AuthLoginPWHandler(w http.ResponseWriter, r *http.Request) {
-	authLayer := AuthFromRequestContext(r)
+	authLayer := AuthFromRequestContext(w, r)
 	if authLayer == nil {
-		http.Error(w, "no access to auth layer", http.StatusInternalServerError)
 		return
 	}
 	username, password, basicAuthUsed := r.BasicAuth()
@@ -47,9 +46,8 @@ func AuthLoginPWHandler(w http.ResponseWriter, r *http.Request) {
 
 // Mounts at /api/v1/auth/mfa-continue
 func AuthLoginMfaHandler(w http.ResponseWriter, r *http.Request) {
-	authLayer := AuthFromRequestContext(r)
+	authLayer := AuthFromRequestContext(w, r)
 	if authLayer == nil {
-		http.Error(w, "couldn't get auth layer from request", http.StatusInternalServerError)
 		return
 	}
 	rawData, err := io.ReadAll(r.Body)

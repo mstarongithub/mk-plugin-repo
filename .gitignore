@@ -1,2 +1,4 @@
 test.db
 db.sqlite
+.air.toml
+tmp/
