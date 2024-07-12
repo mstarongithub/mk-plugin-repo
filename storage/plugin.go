@@ -146,7 +146,11 @@ func (storage *Storage) DeletePlugin(pluginID, authorID uint) error {
 		// TODO: Add logging
 		return err
 	}
-	if plugin.AuthorID != authorID {
+	acc, err := storage.FindAccountByID(authorID)
+	if err != nil {
+		return err
+	}
+	if plugin.AuthorID != authorID && !acc.CanApprovePlugins {
 		// TODO: Add logging
 		return ErrUnauthorised
 	}
@@ -176,4 +180,13 @@ func (storage *Storage) HidePluginVersionFromPlugin(pluginID uint, versionName s
 	}
 
 	return nil
+}
+
+func (storage *Storage) GetUnapprovedPlugins() ([]Plugin, error) {
+	plugins := []Plugin{}
+	res := storage.db.Where("approved = ?", false).Find(&plugins)
+	if res.Error != nil && !errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		return nil, res.Error
+	}
+	return plugins, nil
 }

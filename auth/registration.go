@@ -46,11 +46,9 @@ var (
 // Start a new registration process
 // Returns the process ID
 func (a *Auth) RegisterStart(username string) string {
-	if config.GlobalConfig == nil {
-		panic("Global config is not set!")
-	}
-	if username == config.GlobalConfig.Superuser.Username {
-		return "get empty string'd"
+	// Only allow new usernames
+	if _, err := a.store.FindAccountByName(username); !errors.Is(err, storage.ErrAccountNotFound) {
+		return ""
 	}
 	processId := uuid.NewString()
 	startingTime := time.Now()

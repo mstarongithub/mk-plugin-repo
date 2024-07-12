@@ -81,3 +81,16 @@ func (s *Storage) UpdateAccount(acc *Account) error {
 	res := s.db.Save(acc)
 	return res.Error
 }
+
+func (s *Storage) GetAllUnapprovedAccounts() ([]Account, error) {
+	accs := []Account{}
+	res := s.db.Where("approved = ", false).Find(&accs)
+	if res.Error != nil && !errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		return nil, res.Error
+	}
+	return accs, nil
+}
+
+func (s *Storage) DeleteAccount(id uint) {
+	s.db.Delete(&Account{}, id)
+}

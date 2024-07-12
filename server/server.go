@@ -107,7 +107,7 @@ func buildV1Router(authLayer *auth.Auth) http.Handler {
 	router.HandleFunc("GET /plugins/{pluginId}", getSpecificPlugin)
 	router.HandleFunc("GET /plugins/{pluginId}/{versionName}", getVersion)
 
-	router.HandleFunc("/auth/login/start", AuthLoginPWHandler)
+	router.HandleFunc("GET /auth/login/start", AuthLoginPWHandler)
 	router.HandleFunc("POST /auth/login/mfa", AuthLoginMfaHandler)
 
 	router.HandleFunc("POST /auth/register/start", authRegisterStartHandler)
@@ -129,6 +129,15 @@ func buildV1RestrictedRouter(authLayer *auth.Auth) http.Handler {
 	router.HandleFunc("POST /plugins/{pluginId}", newVersion)
 	router.HandleFunc("DELETE /plugins/{pluginId}", deleteSpecificPlugin)
 	router.HandleFunc("DELETE /plugins/{pluginId}/{versionName}", hideVersion)
+	router.Handle(
+		"/admin/users/",
+		http.StripPrefix("/admin/users", buildV1AccountAdminRouter(authLayer)),
+	)
+	router.Handle(
+		"/admin/plugins/",
+		http.StripPrefix("/admin/plugins", buildV1PluginAdminRouter(authLayer)),
+	)
+	router.HandleFunc("POST /delete", DeleteAccountHandler)
 
 	var handler http.Handler
 	if authLayer != nil {
@@ -140,5 +149,36 @@ func buildV1RestrictedRouter(authLayer *auth.Auth) http.Handler {
 		handler = router
 	}
 
+	return handler
+}
+
+func buildV1AccountAdminRouter(authLayer *auth.Auth) http.Handler {
+	router := http.NewServeMux()
+	router.HandleFunc("POST /approve", VerifyUserHandler)
+	router.HandleFunc("GET /unapproved", GetAllUnverifiedAccountsHandler)
+	router.HandleFunc("POST /promote-admin/plugins", PromotePluginAdminHandler)
+	router.HandleFunc("POST /promote-admin/accounts", PromoteAccountAdminHandler)
+
+	var handler http.Handler
+	if authLayer != nil {
+		handler = ChainMiddlewares(router, CanApproveUsersOnlyMiddleware)
+	} else {
+		handler = router
+	}
+
+	return handler
+}
+
+func buildV1PluginAdminRouter(authLayer *auth.Auth) http.Handler {
+	router := http.NewServeMux()
+	router.HandleFunc("POST /approve", VerifyNewPluginHandler)
+	router.HandleFunc("GET /unapproved", GetAllUnverifiedPluginshandler)
+
+	var handler http.Handler
+	if authLayer != nil {
+		handler = ChainMiddlewares(router, CanApproveNotesOnlyMiddleware)
+	} else {
+		handler = router
+	}
 	return handler
 }

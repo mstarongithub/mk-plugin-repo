@@ -15,9 +15,9 @@ type AuthStateReturn struct {
 }
 
 type AuthMfaKey struct {
-	Value     string
-	ProcessId string
-	Type      int
+	Value     string `json:"value"`
+	ProcessId string `json:"process_id"`
+	Type      int    `json:"type"`
 }
 
 // Mounts at /api/v1/auth/password-start

@@ -94,8 +94,77 @@ func TokenOrAuthMiddleware(h http.Handler) http.Handler {
 				http.StatusInternalServerError,
 			)
 		}
+		if !acc.Approved {
+			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			return
+		}
 
 		h.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), CONTEXT_KEY_ACTOR_ID, acc.ID)))
+	})
+}
+
+func CanApproveNotesOnlyMiddleware(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		accId := AccIdFromRequestContext(w, r)
+		if accId == nil {
+			return
+		}
+		store := StorageFromRequest(w, r)
+		if store == nil {
+			return
+		}
+		log := LogFromRequestContext(w, r)
+		if log != nil {
+			return
+		}
+		acc, err := store.FindAccountByID(*accId)
+		if err != nil {
+			log.WithError(err).
+				Warningln("Failed to get account from id after acc is already verified")
+			http.Error(
+				w,
+				http.StatusText(http.StatusInternalServerError),
+				http.StatusInternalServerError,
+			)
+			return
+		}
+		if !(acc.Approved && acc.CanApprovePlugins) {
+			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
+}
+func CanApproveUsersOnlyMiddleware(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		accId := AccIdFromRequestContext(w, r)
+		if accId == nil {
+			return
+		}
+		store := StorageFromRequest(w, r)
+		if store == nil {
+			return
+		}
+		log := LogFromRequestContext(w, r)
+		if log != nil {
+			return
+		}
+		acc, err := store.FindAccountByID(*accId)
+		if err != nil {
+			log.WithError(err).
+				Warningln("Failed to get account from id after acc is already verified")
+			http.Error(
+				w,
+				http.StatusText(http.StatusInternalServerError),
+				http.StatusInternalServerError,
+			)
+			return
+		}
+		if !(acc.Approved && acc.CanApproveUsers) {
+			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			return
+		}
+		h.ServeHTTP(w, r)
 	})
 }
 
