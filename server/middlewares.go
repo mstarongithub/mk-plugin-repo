@@ -58,6 +58,7 @@ func TokenOrAuthMiddleware(h http.Handler) http.Handler {
 		if log == nil {
 			return
 		}
+		log.Debugln("TokenOrAuthMiddleware called")
 		// For the authentication, check the existence of a token first
 		// If there is a token, ignore basic auth and fail if the token is false
 		token := r.Header.Get(auth.AUTH_TOKEN_HEADER)
@@ -146,7 +147,7 @@ func CanApproveUsersOnlyMiddleware(h http.Handler) http.Handler {
 			return
 		}
 		log := LogFromRequestContext(w, r)
-		if log != nil {
+		if log == nil {
 			return
 		}
 		acc, err := store.FindAccountByID(*accId)

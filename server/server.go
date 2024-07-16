@@ -154,10 +154,11 @@ func buildV1RestrictedRouter(authLayer *auth.Auth) http.Handler {
 
 func buildV1AccountAdminRouter(authLayer *auth.Auth) http.Handler {
 	router := http.NewServeMux()
-	router.HandleFunc("POST /approve", VerifyUserHandler)
+	router.HandleFunc("POST /approve/{id}", VerifyUserHandler)
 	router.HandleFunc("GET /unapproved", GetAllUnverifiedAccountsHandler)
 	router.HandleFunc("POST /promote-admin/plugins", PromotePluginAdminHandler)
 	router.HandleFunc("POST /promote-admin/accounts", PromoteAccountAdminHandler)
+	router.HandleFunc("GET /userdata/{id}", InspectAccountAdminHandler)
 
 	var handler http.Handler
 	if authLayer != nil {

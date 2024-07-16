@@ -3,17 +3,13 @@ package auth
 import (
 	"fmt"
 	"net/url"
-	"time"
 
 	"github.com/ermites-io/passwd"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/sirupsen/logrus"
-	"gitlab.com/mstarongitlab/goutils/other"
-	"gorm.io/gorm"
 
 	"github.com/mstarongithub/mk-plugin-repo/config"
 	"github.com/mstarongithub/mk-plugin-repo/storage"
-	customtypes "github.com/mstarongithub/mk-plugin-repo/storage/customTypes"
 )
 
 type NextAuthState uint
@@ -102,31 +98,7 @@ func NewAuth(store *storage.Storage, mode AuthProviderMode) (*Auth, error) {
 }
 
 func (a *Auth) insertDevAccount() {
-	err := a.store.UpdateAccount(&storage.Account{
-		Model: gorm.Model{
-			ID:        0,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		},
-		Name: "developer",
-		PasswordHash: []byte(
-			"$2id$CKXfPfWzlGPT1xUOZ5k.4u$1$65536$16$32$uih.e8WZNJ8PWj6Z.axzh0SARgRjXjnP.p5JWs36c6K",
-		),
-		Mail:              other.IntoPointer("developer@example.com"),
-		Links:             customtypes.GenericSlice[string]{"example.com"},
-		Description:       "Developer account. Only exists in the build with the flag authDev",
-		CanApprovePlugins: true,
-		CanApproveUsers:   true,
-		PluginsOwned:      make(customtypes.GenericSlice[uint], 0),
-		Approved:          true,
-		AuthMethods:       customtypes.AUTH_METHOD_PASSWORD,
-		FidoToken:         nil,
-		TotpToken:         nil,
-		Passkeys:          make(map[string]string),
-	})
-	if err != nil {
-		panic(err)
-	}
+	a.store.InsertDevAccount()
 }
 
 func (a *Auth) insertSuAccount() {
@@ -144,8 +116,5 @@ func (a *Auth) insertSuAccount() {
 		}
 		acc.PasswordHash = hashed
 	}
-	err := a.store.UpdateAccount(&acc)
-	if err != nil {
-		logrus.WithError(err).Fatalln("Failed to insert/update superuser account")
-	}
+	a.store.InsertSudoAccount(acc.Name, acc.PasswordHash)
 }

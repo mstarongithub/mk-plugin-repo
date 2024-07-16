@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 
 	"gitlab.com/mstarongitlab/goutils/sliceutils"
 
@@ -17,6 +18,17 @@ type VerifyThing struct {
 
 type IdList struct {
 	Ids []uint `json:"ids"`
+}
+
+type AccountData struct {
+	Name         string   `json:"name"`
+	Mail         *string  `json:"mail"`
+	Description  string   `json:"description"`
+	Approved     bool     `json:"approved"`
+	UserAdmin    bool     `json:"user_admin"`
+	PluginAdmin  bool     `json:"plugin_admin"`
+	PluginsOwned []uint   `json:"plugins_owned"`
+	Links        []string `json:"links"`
 }
 
 func VerifyUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -279,4 +291,136 @@ func DeleteAccountHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	store.DeleteAccount(data.Id)
+}
+
+func DemotePluginAdminHandler(w http.ResponseWriter, r *http.Request) {
+	log := LogFromRequestContext(w, r)
+	if log == nil {
+		return
+	}
+	store := StorageFromRequest(w, r)
+	if store == nil {
+		return
+	}
+	actorId := AccIdFromRequestContext(w, r)
+	if actorId == nil {
+		return
+	}
+	rawData, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(
+			w,
+			http.StatusText(http.StatusBadRequest),
+			http.StatusBadRequest,
+		)
+		return
+	}
+	data := VerifyThing{}
+	err = json.Unmarshal(rawData, &data)
+	if err != nil {
+		http.Error(w, "body not json data", http.StatusBadRequest)
+		return
+	}
+	acc, err := store.FindAccountByID(data.Id)
+	if err != nil {
+		log.WithError(err).Warningln("Failed to get account to promote to plugin admin")
+		http.Error(w, "problem finding account", http.StatusBadRequest)
+		return
+	}
+	if acc.ID == 0 {
+		log.WithField("actor", *actorId).
+			Warningln("Account admin tried to demote the superuser! Refusing attempt")
+		return
+	}
+	acc.CanApprovePlugins = false
+	store.UpdateAccount(acc)
+}
+
+func DemoteAccountAdminHandler(w http.ResponseWriter, r *http.Request) {
+	log := LogFromRequestContext(w, r)
+	if log == nil {
+		return
+	}
+	store := StorageFromRequest(w, r)
+	if store == nil {
+		return
+	}
+	actorId := AccIdFromRequestContext(w, r)
+	if actorId == nil {
+		return
+	}
+	rawData, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(
+			w,
+			http.StatusText(http.StatusBadRequest),
+			http.StatusBadRequest,
+		)
+		return
+	}
+	data := VerifyThing{}
+	err = json.Unmarshal(rawData, &data)
+	if err != nil {
+		http.Error(w, "body not json data", http.StatusBadRequest)
+		return
+	}
+	acc, err := store.FindAccountByID(data.Id)
+	if err != nil {
+		log.WithError(err).Warningln("Failed to get account to promote to plugin admin")
+		http.Error(w, "problem finding account", http.StatusBadRequest)
+		return
+	}
+	if acc.ID == 1 {
+		log.WithField("actor", *actorId).
+			Warningln("Account admin tried to demote the superuser! Refusing attempt")
+		return
+	}
+	acc.CanApproveUsers = false
+	store.UpdateAccount(acc)
+}
+
+func InspectAccountAdminHandler(w http.ResponseWriter, r *http.Request) {
+	log := LogFromRequestContext(w, r)
+	if log == nil {
+		return
+	}
+	store := StorageFromRequest(w, r)
+	if store == nil {
+		return
+	}
+	actorId := AccIdFromRequestContext(w, r)
+	if actorId == nil {
+		return
+	}
+	idString := r.PathValue("id")
+	id, err := strconv.ParseUint(idString, 0, 0)
+	if err != nil {
+		http.Error(w, "id must be an uint id", http.StatusInternalServerError)
+		return
+	}
+	acc, err := store.FindAccountByID(uint(id))
+	if err != nil {
+		log.WithError(err).Warningln("Failed to get account to promote to plugin admin")
+		http.Error(w, "problem finding account", http.StatusBadRequest)
+		return
+	}
+	retStruct := AccountData{
+		Name:         acc.Name,
+		Description:  acc.Description,
+		Mail:         acc.Mail,
+		Approved:     acc.Approved,
+		UserAdmin:    acc.CanApproveUsers,
+		PluginAdmin:  acc.CanApprovePlugins,
+		PluginsOwned: acc.PluginsOwned,
+		Links:        acc.Links,
+	}
+	retData, err := json.Marshal(&retStruct)
+	if err != nil {
+		log.WithError(err).
+			WithField("target-account", id).
+			Warningln("Failed to marshal return json!")
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprint(w, string(retData))
 }

@@ -14,10 +14,10 @@ type Account struct {
 	gorm.Model
 
 	// ---- Section User data
-	Name        string  // Name of the account, NOT THE ID
-	Mail        *string // Email linked to the account
-	Links       customtypes.GenericSlice[string]
-	Description string // A description of the account, added by the user. Not necessary
+	Name        string                           // Name of the account, NOT THE ID
+	Mail        *string                          // Email linked to the account
+	Links       customtypes.GenericSlice[string] `gorm:"serializer:json"`
+	Description string                           // A description of the account, added by the user. Not necessary
 
 	// ---- Section access control
 	CanApprovePlugins bool // Can this account approve new plugin requests?
@@ -84,7 +84,7 @@ func (s *Storage) UpdateAccount(acc *Account) error {
 
 func (s *Storage) GetAllUnapprovedAccounts() ([]Account, error) {
 	accs := []Account{}
-	res := s.db.Where("approved = ", false).Find(&accs)
+	res := s.db.Where("approved = ?", false).Find(&accs)
 	if res.Error != nil && !errors.Is(res.Error, gorm.ErrRecordNotFound) {
 		return nil, res.Error
 	}

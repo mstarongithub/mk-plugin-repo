@@ -7,7 +7,6 @@ import (
 
 	"github.com/pquerna/otp/totp"
 
-	"github.com/mstarongithub/mk-plugin-repo/config"
 	customtypes "github.com/mstarongithub/mk-plugin-repo/storage/customTypes"
 )
 
@@ -33,27 +32,6 @@ func (a *Auth) LoginWithPassword(username, password string) (NextAuthState, stri
 	time.Sleep(
 		(time.Millisecond * time.Duration(rand.Uint32())) % 250,
 	) // Sleep a random amount of time between 0 and 250ms. Fuck those timing attacks
-
-	if username == config.GlobalConfig.Superuser.Username {
-		if config.GlobalConfig.Superuser.PasswordIsRaw != nil &&
-			*config.GlobalConfig.Superuser.PasswordIsRaw {
-			if password != config.GlobalConfig.Superuser.Password {
-				return AUTH_FAIL, ""
-			}
-		} else {
-			if a.hasher.Compare(
-				[]byte(config.GlobalConfig.Superuser.Password),
-				[]byte(password),
-			) != nil {
-				return AUTH_FAIL, ""
-			}
-		}
-		token, err := a.generateToken(0, nil)
-		if err != nil {
-			return AUTH_FAIL, ""
-		}
-		return AUTH_SUCCESS, token
-	}
 
 	acc, err := a.store.FindAccountByName(username)
 	if err != nil {

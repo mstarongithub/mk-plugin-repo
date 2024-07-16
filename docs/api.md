@@ -56,7 +56,7 @@ Version 1 of the API resides under `/api/v1`
   - `ids`: `[number]` - A list of IDs of users or plugins
 
 - AuthState:
-  - `state`: `number` 
+  - `state`: `number`
     - The next state of the authentication process.
     - Binary flag:
       - 0: Ok
@@ -74,6 +74,16 @@ Version 1 of the API resides under `/api/v1`
 - RegisterData:
   - `process_id`: `string` - The current process id
   - `value`: `string` - Whatever value is needed for the registration action
+
+- Userdata:
+  - `name`: `string` - The name of the account
+  - `mail`: `string | null` - Mail of the account
+  - `description`: `string` - Description of the account
+  - `approved`: `bool` - Whether the account is approved
+  - `user_admin`: `bool` - Whether the account can manage other accounts
+  - `plugin_admin`: `bool` - Whether the account can manage plugins
+  - `plugins_owned`: `[number]` - The IDs of the plugins the account owns
+  - `links`: `[string]` - Links the account is associated with
 
 ### Endpoints
 
@@ -172,9 +182,14 @@ Version 1 of the API resides under `/api/v1`
     - Returns: Nothing
 - /api/v1/admin/users/promote-admin/accounts
   - POST:
-    - (Restricted: Account admins only) Promot an account to account admin
+    - (Restricted: Account admins only) Promote an account to account admin
     - Receives: `IdValue` containing ID of target user
     - Returns: Nothing
+- /api/v1/admin/users/userdata/{id}
+  - GET:
+    - (Restricted: Account admins only) Get the information about an account, including admin status
+    - Receives: Nothing
+    - Returns: `Userdata`
 
 - /api/v1/admin/plugins/approve
   - POST:
@@ -186,4 +201,3 @@ Version 1 of the API resides under `/api/v1`
     - (Restricted: Plugin admins only) Get all unapproved plugin
     - Receives: Nothing
     - Returns: `IdList`
-

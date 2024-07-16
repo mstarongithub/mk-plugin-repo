@@ -37,11 +37,11 @@ func (a *Auth) CheckToken(rawToken string) (uint, bool) {
 	case AUTH_MODE_DEV:
 		a.log.Debugln("Runing in dev mode, checking for dev token")
 		if rawToken == _TOKEN_DEV_ACCOUNT {
-			return 0, true
+			return 1, true
 		}
 	case AUTH_MODE_NONE:
 		a.log.Debugln("Auth mode disabled, accepting all")
-		return 0, true
+		return 1, true
 	}
 	dbToken, err := a.store.FindToken(rawToken)
 	if err != nil {
