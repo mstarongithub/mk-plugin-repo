@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"github.com/go-webauthn/webauthn/webauthn"
 	"gitlab.com/mstarongitlab/goutils/other"
 
 	customtypes "github.com/mstarongithub/mk-plugin-repo/storage/customTypes"
@@ -23,7 +24,8 @@ func (storage *Storage) InsertDevAccount() {
 	acc.AuthMethods = customtypes.AUTH_METHOD_PASSWORD
 	acc.FidoToken = nil
 	acc.TotpToken = nil
-	acc.Passkeys = make(map[string]string)
+	acc.Credentials = make([]webauthn.Credential, 0)
+	acc.PasskeyId = []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 	storage.db.Save(acc)
 }
 
@@ -43,6 +45,7 @@ func (storage *Storage) InsertSudoAccount(username string, passwordHash []byte) 
 	acc.AuthMethods = customtypes.AUTH_METHOD_PASSWORD
 	acc.FidoToken = nil
 	acc.TotpToken = nil
-	acc.Passkeys = make(map[string]string)
+	acc.Credentials = make([]webauthn.Credential, 0)
+	acc.PasskeyId = []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 	storage.db.Save(acc)
 }

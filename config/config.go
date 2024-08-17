@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/BurntSushi/toml"
+	"github.com/sirupsen/logrus"
 )
 
 const DEFAULT_CONFIG_FILE_NAME = "config.toml"
@@ -14,11 +15,16 @@ var ErrNoConfig = fmt.Errorf("no config set")
 var GlobalConfig *Config
 
 type ConfigGeneral struct {
-	// The root domain where the entire project resides under
-	// This includes port and protocol. Examples:
-	// - http://localhost:8080
-	// - https://subdomain.example.com
-	RootUrl       string `toml:"root_url"`
+	// The protocol which is used to access the server publicly
+	Protocol string
+	// The top domain the server resides under publicly ("example.com")
+	TopDomain string
+	// The subdomain the server resides under publicy ("something".example.com)
+	SubDomain *string
+	// The port the server runs under, not necessarly the public one
+	PrivatePort int
+	// The port the server is accessible from in public, usually important for reverse proxies
+	PublicPort    int
 	HashingSecret string `toml:"hash_secret"`
 }
 
@@ -41,19 +47,7 @@ type ConfigWebauth struct {
 // Superuser data
 // Note: Will be overwritten in dev mode since su and dev share the same ID of 0
 type ConfigSuperuser struct {
-	Enabled  bool   `toml:"enabled"`
-	Username string `toml:"username"`
-	// Password is argon2id encrypted using the default settings of the github.com/ermites-io/passwd Argon2IdDefault config
-	// The params this uses for Argon2Id are:
-	// - Time:    1
-	// - Memory:  64 * 1024
-	// - Threads: 8
-	// - SaltLen: 16
-	// - Keylen:  32
-	Password string `toml:"password"`
-	// If set and true, the previous comment can be ignored as the password will be handled as if it was raw
-	// Note: Pleas don't use this and instead offer an already hashed password for increased safety
-	PasswordIsRaw *bool `toml:"password_is_raw"`
+	FirstSetupOTP string `toml:"first_setup_otp"`
 }
 
 type Config struct {
@@ -65,6 +59,28 @@ type Config struct {
 	WebAuth ConfigWebauth `toml:"webauth"`
 	// Superuser account config. Required
 	Superuser ConfigSuperuser `toml:"superuser"`
+}
+
+var defaultConfigData = Config{
+	General: ConfigGeneral{
+		Protocol:      "http",
+		TopDomain:     "localhost",
+		SubDomain:     nil,
+		PrivatePort:   8080,
+		PublicPort:    8080,
+		HashingSecret: "placeholder",
+	},
+	SslConfig: ConfigSSL{
+		HandleSslInApp:        false,
+		UseLetsEncrypt:        nil,
+		CustomCertificatePath: nil,
+	},
+	WebAuth: ConfigWebauth{
+		DisplayName: "Misskey Plugin Repo",
+	},
+	Superuser: ConfigSuperuser{
+		FirstSetupOTP: "placeholder",
+	},
 }
 
 func ReadConfig(fileName *string) (Config, error) {
@@ -91,12 +107,19 @@ func ReadFromFileName(fileName string, writeToGlobal bool) (config Config, err e
 }
 
 func SetGlobalToDefault() {
-	GlobalConfig = &Config{
-		SslConfig: ConfigSSL{
-			HandleSslInApp: false,
-		},
-		General: ConfigGeneral{
-			RootUrl: "localhost:8080",
-		},
+	GlobalConfig = &defaultConfigData
+}
+
+func WriteDefaultConfigToDefaultLocation() {
+	f, err := os.Create(DEFAULT_CONFIG_FILE_NAME)
+	defer f.Close()
+	if err != nil {
+		logrus.WithError(err).Errorln("Can't create default config file! Exiting")
+		os.Exit(1)
+	}
+	err = toml.NewEncoder(f).Encode(&defaultConfigData)
+	if err != nil {
+		logrus.WithError(err).Errorln("Failed to write default config to default file! Exiting")
+		os.Exit(1)
 	}
 }

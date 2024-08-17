@@ -9,7 +9,4 @@ handle_ssl_in_app = false
 display_name = "Mk plugin repo"
 
 [superuser]
-enabled = true
-username = "superuser"
-password = "sudo password"
-password_is_raw = true
+first_setup_otp = "example password"

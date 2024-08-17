@@ -5,7 +5,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/mstarongithub/mk-plugin-repo/auth"
 	"github.com/mstarongithub/mk-plugin-repo/storage"
 	customtypes "github.com/mstarongithub/mk-plugin-repo/storage/customTypes"
 )
@@ -34,14 +33,14 @@ func ServerFromRequest(w http.ResponseWriter, r *http.Request) *Server {
 	return store
 }
 
-func AuthFromRequestContext(w http.ResponseWriter, r *http.Request) *auth.Auth {
-	a, ok := r.Context().Value(CONTEXT_KEY_AUTH_LAYER).(*auth.Auth)
-	if !ok {
-		http.Error(w, "no auth in request context", http.StatusInternalServerError)
-		return nil
-	}
-	return a
-}
+// func AuthFromRequestContext(w http.ResponseWriter, r *http.Request) *auth.Auth {
+// 	a, ok := r.Context().Value(CONTEXT_KEY_AUTH_LAYER).(*auth.Auth)
+// 	if !ok {
+// 		http.Error(w, "no auth in request context", http.StatusInternalServerError)
+// 		return nil
+// 	}
+// 	return a
+// }
 
 func LogFromRequestContext(w http.ResponseWriter, r *http.Request) *logrus.Entry {
 	a, ok := r.Context().Value(CONTEXT_KEY_LOG).(*logrus.Entry)

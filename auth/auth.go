@@ -102,19 +102,19 @@ func (a *Auth) insertDevAccount() {
 }
 
 func (a *Auth) insertSuAccount() {
-	if !config.GlobalConfig.Superuser.Enabled {
-		return
-	}
-	acc := storage.Account{
-		Name: config.GlobalConfig.Superuser.Username,
-	}
-	if config.GlobalConfig.Superuser.PasswordIsRaw != nil &&
-		*config.GlobalConfig.Superuser.PasswordIsRaw {
-		hashed, err := a.hasher.Hash([]byte(config.GlobalConfig.Superuser.Password))
-		if err != nil {
-			panic("Failed to hash superuser password!")
-		}
-		acc.PasswordHash = hashed
-	}
-	a.store.InsertSudoAccount(acc.Name, acc.PasswordHash)
+	// if !config.GlobalConfig.Superuser.Enabled {
+	// 	return
+	// }
+	// acc := storage.Account{
+	// 	Name: config.GlobalConfig.Superuser.Username,
+	// }
+	// if config.GlobalConfig.Superuser.PasswordIsRaw != nil &&
+	// 	*config.GlobalConfig.Superuser.PasswordIsRaw {
+	// 	hashed, err := a.hasher.Hash([]byte(config.GlobalConfig.Superuser.Password))
+	// 	if err != nil {
+	// 		panic("Failed to hash superuser password!")
+	// 	}
+	// 	acc.PasswordHash = hashed
+	// }
+	// a.store.InsertSudoAccount(acc.Name, acc.PasswordHash)
 }

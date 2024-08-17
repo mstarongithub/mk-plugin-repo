@@ -1,9 +1,13 @@
 package storage
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
 
+	"github.com/go-webauthn/webauthn/webauthn"
+	"github.com/mstarongithub/passkey"
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
 	customtypes "github.com/mstarongithub/mk-plugin-repo/storage/customTypes"
@@ -32,7 +36,10 @@ type Account struct {
 	PasswordHash []byte // The hash of the user's password, if they have one
 	FidoToken    *string
 	TotpToken    *string
-	Passkeys     map[string]string `gorm:"serializer:json"`
+
+	// ---- Section Passkeys
+	PasskeyId   []byte
+	Credentials []webauthn.Credential `gorm:"serializer:json"`
 }
 
 var ErrAccountNotFound = errors.New("account not found")
@@ -93,4 +100,70 @@ func (s *Storage) GetAllUnapprovedAccounts() ([]Account, error) {
 
 func (s *Storage) DeleteAccount(id uint) {
 	s.db.Delete(&Account{}, id)
+}
+
+// ---- Section webauthn.User
+
+func (u *Account) WebAuthnID() []byte {
+	logrus.WithFields(logrus.Fields{
+		"name":  u.Name,
+		"pk-id": u.PasskeyId,
+	}).Debug("Returning passkey id for acc")
+	return u.PasskeyId
+}
+
+func (u *Account) WebAuthnName() string {
+	return u.Name
+}
+
+func (u *Account) WebAuthnDisplayName() string {
+	return u.Name
+}
+
+func (u *Account) WebAuthnCredentials() []webauthn.Credential {
+	return u.Credentials
+}
+
+func (u *Account) WebAuthnIcon() string {
+	return ""
+}
+
+// ---- Section passkey.User
+
+func (u *Account) PutCredential(new webauthn.Credential) {
+	u.Credentials = append(u.Credentials, new)
+}
+
+// Section passkey.UserStore
+
+func (s *Storage) GetOrCreateUser(userID string) passkey.User {
+	logrus.WithField("userId", userID).Debugln("Searching or creating user for passkey stuff")
+	acc := &Account{}
+	s.db.Model(&Account{}).Where("name = ?", userID).FirstOrCreate(acc)
+	if acc.PasskeyId == nil || len(acc.PasskeyId) == 0 {
+		data := make([]byte, 64)
+		c, err := rand.Read(data)
+		for err != nil || c != len(data) || c < 64 {
+			data = make([]byte, 64)
+			c, err = rand.Read(data)
+		}
+		acc.PasskeyId = data
+	}
+	acc.Name = userID
+	s.db.Save(acc)
+	return acc
+}
+
+func (s *Storage) GetUserByWebAuthnId(id []byte) passkey.User {
+	acc := &Account{}
+	s.db.Model(acc).Where("passkey_id = ?", id).First(acc)
+	return acc
+}
+
+func (s *Storage) SaveUser(rawUser passkey.User) {
+	user, ok := rawUser.(*Account)
+	if !ok {
+		return
+	}
+	s.db.Save(user)
 }

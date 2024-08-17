@@ -4,10 +4,12 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/go-webauthn/webauthn/webauthn"
+	"github.com/mstarongithub/passkey"
 	"github.com/sirupsen/logrus"
 
-	"github.com/mstarongithub/mk-plugin-repo/auth"
 	"github.com/mstarongithub/mk-plugin-repo/config"
 	"github.com/mstarongithub/mk-plugin-repo/fswrapper"
 	"github.com/mstarongithub/mk-plugin-repo/server"
@@ -26,8 +28,10 @@ func main() {
 	setLogLevelFromEnv()
 	_, err := config.ReadConfig(nil)
 	if err != nil {
-		logrus.WithError(err).Warnln("Err reading config, using default")
+		logrus.WithError(err).
+			Warnln("Err reading config, using default and attempting to write it to default location")
 		config.SetGlobalToDefault()
+		config.WriteDefaultConfigToDefaultLocation()
 	}
 
 	err = util.CreateFileIfNotExists(DB_DEFAULT_FILE)
@@ -44,27 +48,43 @@ func main() {
 	defer stopServiceWorkersFunc()
 
 	// Setup authentication layer
-	var authLayer *auth.Auth
-	logrus.WithField("mode", authMode).Infoln("Using authmode")
-	switch authMode {
-	case "prod":
-		authLayer, err = auth.NewAuth(store, auth.AUTH_MODE_DEFAULT)
-	case "dev":
-		authLayer, err = auth.NewAuth(store, auth.AUTH_MODE_DEV)
-	case "none":
-		authLayer, err = auth.NewAuth(store, auth.AUTH_MODE_NONE)
-	default:
-		authLayer, err = auth.NewAuth(store, auth.AUTH_MODE_DEFAULT)
-	}
+	// var authLayer *auth.Auth
+	// logrus.WithField("mode", authMode).Infoln("Using authmode")
+	// switch authMode {
+	// case "prod":
+	// 	authLayer, err = auth.NewAuth(store, auth.AUTH_MODE_DEFAULT)
+	// case "dev":
+	// 	authLayer, err = auth.NewAuth(store, auth.AUTH_MODE_DEV)
+	// case "none":
+	// 	authLayer, err = auth.NewAuth(store, auth.AUTH_MODE_NONE)
+	// default:
+	// 	authLayer, err = auth.NewAuth(store, auth.AUTH_MODE_DEFAULT)
+	// }
+	// if err != nil {
+	// 	logrus.WithError(err).Fatal("Failed to set up authentication layer")
+	// 	os.Exit(1)
+	// }
+	pkey, err := passkey.New(
+		passkey.Config{
+			WebauthnConfig: &webauthn.Config{
+				RPDisplayName: "Misskey plugin repo",
+				RPID:          "localhost",
+				RPOrigins:     []string{"http://localhost:8080"},
+			},
+			UserStore:     store,
+			SessionStore:  store,
+			SessionMaxAge: time.Hour * 24,
+		},
+		passkey.WithLogger(logrus.StandardLogger()),
+	)
 	if err != nil {
-		logrus.WithError(err).Fatal("Failed to set up authentication layer")
-		os.Exit(1)
+		logrus.WithError(err).Fatal("Failed to configure passkeys")
 	}
 
 	httpServer, err := server.NewServer(
 		fswrapper.NewFSWrapper(frontendFS, "frontend/build/", false),
 		store,
-		authLayer,
+		pkey,
 	)
 	if err != nil {
 		panic(err)

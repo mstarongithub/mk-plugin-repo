@@ -1,14 +1,17 @@
 package server
 
 import (
+	"context"
+	"fmt"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"strings"
 
+	"github.com/mstarongithub/passkey"
 	"github.com/rs/cors"
 	"github.com/sirupsen/logrus"
 
-	"github.com/mstarongithub/mk-plugin-repo/auth"
 	"github.com/mstarongithub/mk-plugin-repo/storage"
 )
 
@@ -27,20 +30,22 @@ const (
 	CONTEXT_KEY_AUTH_LAYER = ServerContextKey("auth-layer")
 	CONTEXT_KEY_LOG        = ServerContextKey("logging")
 	CONTEXT_KEY_ACTOR_ID   = ServerContextKey("actor-id")
+	CONTEXT_KEY_ACTOR_NAME = "actor-name"
 )
 
 func NewServer(
 	frontendFS fs.FS,
 	store *storage.Storage,
-	authLayer *auth.Auth,
+	pkey *passkey.Passkey,
 ) (*Server, error) {
 	mainRouter := http.NewServeMux()
 
-	frontendRouter, _ := buildFrontendRouter(frontendFS)
-	apiRouter, _ := buildApiRouter(authLayer)
+	frontendRouter := buildFrontendRouter(frontendFS)
+	apiRouter := buildApiRouter(pkey)
 
 	mainRouter.Handle("/", frontendRouter)
 	mainRouter.Handle("/api/", http.StripPrefix("/api", apiRouter))
+	pkey.MountRoutes(mainRouter, "/webauthn/")
 
 	server := Server{
 		storage:    store,
@@ -52,9 +57,9 @@ func NewServer(
 		mainRouter,
 		ContextValsMiddleware(
 			map[any]any{
-				CONTEXT_KEY_SERVER:     &server,
-				CONTEXT_KEY_STORAGE:    store,
-				CONTEXT_KEY_AUTH_LAYER: authLayer,
+				CONTEXT_KEY_SERVER:  &server,
+				CONTEXT_KEY_STORAGE: store,
+				// CONTEXT_KEY_AUTH_LAYER: authLayer,
 			},
 		),
 		cors.AllowAll().Handler,
@@ -65,8 +70,7 @@ func NewServer(
 	return &server, nil
 }
 
-// NOTE: Error return value unused currently and can safely be ignored
-func buildFrontendRouter(frontendFS fs.FS) (http.Handler, error) {
+func buildFrontendRouter(frontendFS fs.FS) http.Handler {
 	router := http.NewServeMux()
 
 	router.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +88,7 @@ func buildFrontendRouter(frontendFS fs.FS) (http.Handler, error) {
 	router.HandleFunc("GET /_app/", func(w http.ResponseWriter, r *http.Request) {
 		http.FileServerFS(frontendFS).ServeHTTP(w, r)
 	})
-	return router, nil
+	return router
 }
 
 func (s *Server) Run(addr string) error {
@@ -92,37 +96,40 @@ func (s *Server) Run(addr string) error {
 	return http.ListenAndServe(addr, s.handler)
 }
 
-// NOTE: Error return value unused currently and can safely be ignored
-func buildApiRouter(authLayer *auth.Auth) (http.Handler, error) {
+func buildApiRouter(pkey *passkey.Passkey) http.Handler {
 	router := http.NewServeMux()
 
-	router.Handle("/v1/", http.StripPrefix("/v1", buildV1Router(authLayer)))
-	return router, nil
+	router.Handle("/v1/", http.StripPrefix("/v1", buildV1Router(pkey)))
+	return router
 }
 
-func buildV1Router(authLayer *auth.Auth) http.Handler {
+func buildV1Router(pkey *passkey.Passkey) http.Handler {
 	router := http.NewServeMux()
 
 	router.HandleFunc("GET /plugins", getPluginList)
 	router.HandleFunc("GET /plugins/{pluginId}", getSpecificPlugin)
 	router.HandleFunc("GET /plugins/{pluginId}/{versionName}", getVersion)
 
-	router.HandleFunc("GET /auth/login/start", AuthLoginPWHandler)
-	router.HandleFunc("POST /auth/login/mfa", AuthLoginMfaHandler)
+	// router.HandleFunc("GET /auth/login/start", AuthLoginPWHandler)
+	// router.HandleFunc("POST /auth/login/mfa", AuthLoginMfaHandler)
 
-	router.HandleFunc("POST /auth/register/start", authRegisterStartHandler)
-	router.HandleFunc("POST /auth/register/password", authRegisterAddPasswordHandler)
-	router.HandleFunc("POST /auth/register/mail", authRegisterAddMailHandler)
-	router.HandleFunc("POST /auth/register/description", authRegisterAddDescriptionHandler)
-	router.HandleFunc("POST /auth/register/finalise", authRegisterFinaliseHandler)
-	router.HandleFunc("POST /auth/register/cancel", authRegisterCancelHandler)
-	router.Handle("/", buildV1RestrictedRouter(authLayer))
+	// router.HandleFunc("POST /auth/register/start", authRegisterStartHandler)
+	// router.HandleFunc("POST /auth/register/password", authRegisterAddPasswordHandler)
+	// router.HandleFunc("POST /auth/register/mail", authRegisterAddMailHandler)
+	// router.HandleFunc("POST /auth/register/description", authRegisterAddDescriptionHandler)
+	// router.HandleFunc("POST /auth/register/finalise", authRegisterFinaliseHandler)
+	// router.HandleFunc("POST /auth/register/cancel", authRegisterCancelHandler)
+	router.Handle("/", buildV1RestrictedRouter(pkey))
 
 	return router
 }
 
-func buildV1RestrictedRouter(authLayer *auth.Auth) http.Handler {
+func buildV1RestrictedRouter(pkey *passkey.Passkey) http.Handler {
 	router := http.NewServeMux()
+
+	router.HandleFunc("/forbidden-test", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "Hello there")
+	})
 
 	router.HandleFunc("POST /plugins", addNewPlugin)
 	router.HandleFunc("PUT /plugins/{pluginId}", updateSpecificPlugin)
@@ -131,28 +138,43 @@ func buildV1RestrictedRouter(authLayer *auth.Auth) http.Handler {
 	router.HandleFunc("DELETE /plugins/{pluginId}/{versionName}", hideVersion)
 	router.Handle(
 		"/admin/users/",
-		http.StripPrefix("/admin/users", buildV1AccountAdminRouter(authLayer)),
+		http.StripPrefix("/admin/users", buildV1AccountAdminRouter()),
 	)
 	router.Handle(
 		"/admin/plugins/",
-		http.StripPrefix("/admin/plugins", buildV1PluginAdminRouter(authLayer)),
+		http.StripPrefix("/admin/plugins", buildV1PluginAdminRouter()),
 	)
 	router.HandleFunc("POST /delete", DeleteAccountHandler)
 
-	var handler http.Handler
-	if authLayer != nil {
-		handler = ChainMiddlewares(
-			router,
-			TokenOrAuthMiddleware,
-		)
-	} else {
-		handler = router
-	}
-
-	return handler
+	return pkey.Auth(
+		CONTEXT_KEY_ACTOR_NAME,
+		// This func takes the name identified by the passkey auth middleware
+		// and inserts the account ID into the context
+		func(w http.ResponseWriter, r *http.Request) {
+			s := StorageFromRequest(w, r)
+			if s == nil {
+				http.Error(w, "failed to get storage", http.StatusInternalServerError)
+				return
+			}
+			str, ok := r.Context().Value(CONTEXT_KEY_ACTOR_NAME).(string)
+			if !ok {
+				http.Error(w, "actor name not in context", http.StatusInternalServerError)
+				return
+			}
+			acc, err := s.FindAccountByName(str)
+			if err != nil {
+				http.Error(w, "Failed to get account", http.StatusInternalServerError)
+				return
+			}
+			*r = *r.WithContext(context.WithValue(r.Context(), CONTEXT_KEY_ACTOR_ID, acc.ID))
+		},
+		passkey.RedirectUnauthorized(url.URL{Path: "/"}),
+	)(
+		router,
+	)
 }
 
-func buildV1AccountAdminRouter(authLayer *auth.Auth) http.Handler {
+func buildV1AccountAdminRouter() http.Handler {
 	router := http.NewServeMux()
 	router.HandleFunc("POST /approve/{id}", VerifyUserHandler)
 	router.HandleFunc("GET /unapproved", GetAllUnverifiedAccountsHandler)
@@ -161,25 +183,17 @@ func buildV1AccountAdminRouter(authLayer *auth.Auth) http.Handler {
 	router.HandleFunc("GET /userdata/{id}", InspectAccountAdminHandler)
 
 	var handler http.Handler
-	if authLayer != nil {
-		handler = ChainMiddlewares(router, CanApproveUsersOnlyMiddleware)
-	} else {
-		handler = router
-	}
+	handler = ChainMiddlewares(router, CanApproveUsersOnlyMiddleware)
 
 	return handler
 }
 
-func buildV1PluginAdminRouter(authLayer *auth.Auth) http.Handler {
+func buildV1PluginAdminRouter() http.Handler {
 	router := http.NewServeMux()
 	router.HandleFunc("POST /approve", VerifyNewPluginHandler)
 	router.HandleFunc("GET /unapproved", GetAllUnverifiedPluginshandler)
 
 	var handler http.Handler
-	if authLayer != nil {
-		handler = ChainMiddlewares(router, CanApproveNotesOnlyMiddleware)
-	} else {
-		handler = router
-	}
+	handler = ChainMiddlewares(router, CanApproveNotesOnlyMiddleware)
 	return handler
 }
