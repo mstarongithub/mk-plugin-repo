@@ -4,8 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/sirupsen/logrus"
-	"gitlab.com/mstarongitlab/goutils/sliceutils"
+	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 )
 
@@ -23,29 +22,16 @@ var ErrVersionAlreadyExists = errors.New("version already exists")
 // Will return empty list if that plugin doesn't exist
 // Will return empty list if that plugin doesn't exist
 func (storage *Storage) GetVersionsFor(pluginID uint) []PluginVersion {
-	logrus.WithFields(logrus.Fields{
-		"pluginID": pluginID,
-		"source":   "storage.GetVersionsFor",
-	}).
-		Debugln("storage: Attempting to get versions for plugin")
+	log.Debug().Uint("plugin-id", pluginID).Msg("Grabbing plugin versions")
 	plugins := []PluginVersion{}
 	result := storage.db.Find(plugins, "plugin_id = ?", pluginID)
 	if result.Error != nil {
-		logrus.WithFields(logrus.Fields{
-			"pluginID": pluginID,
-			"source":   "storage.GetVersionsFor",
-		}).
-			WithError(result.Error).
-			Warnln("storage: Error while getting versions for plugin")
+		log.Warn().
+			Err(result.Error).
+			Uint("plugin-id", pluginID).
+			Msg("No versions for a non-existing plugin")
 	}
-	logrus.WithFields(logrus.Fields{
-		"plugins.len": len(plugins),
-		"plugins.versions": sliceutils.Map(
-			plugins,
-			func(plugin PluginVersion) string { return plugin.Version },
-		),
-		"pluginID": pluginID,
-	}).Debugln("found versions")
+	log.Debug().Uint("plugin-id", pluginID).Int("version-count", len(plugins)).Msg("Found versions")
 	return plugins
 }
 
@@ -55,19 +41,20 @@ func (storage *Storage) TryFindVersion(pluginID uint, versionName string) (*Plug
 		Version:  versionName,
 		PluginID: pluginID,
 	}
-	// TODO: Add logging
+	logger := log.With().
+		Uint("plugin-id", pluginID).
+		Str("version-name", versionName).
+		Logger()
+	logger.Debug().Msg("Looking for version of plugin")
 	result := storage.db.Where("version = ?", versionName).
 		Where("plugin_id = ?", pluginID).
 		First(&version)
-	if result.RowsAffected < 1 {
-		logrus.WithFields(logrus.Fields{
-			"pluginID":    pluginID,
-			"versionName": versionName,
-		}).Debugln("Couldn't find plugin version")
+	if result.RowsAffected < 1 || errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		logger.Debug().Msg("Version not found")
 		return nil, ErrVersionNotFound
 	}
 	if result.Error != nil {
-		// TODO: Add logging
+		logger.Warn().Err(result.Error).Msg("Problem getting version for plugin")
 		return nil, fmt.Errorf(
 			"problem getting the first matching entry for version %q of plugin with ID %d: %w",
 			versionName,
@@ -75,29 +62,33 @@ func (storage *Storage) TryFindVersion(pluginID uint, versionName string) (*Plug
 			result.Error,
 		)
 	}
-	// TODO: Add logging
+	logger.Debug().Msg("Found version")
 	return &version, nil
 }
 
-// Hide/Disable a specific version of a plugin. This doesn't delete it, but makes it unavailable
-func (storage *Storage) HideVersion(pluginID uint, versionName string) error {
-	// TODO: Add logging
+// TODO: Rename to DeleteVersion
+func (storage *Storage) DeleteVersion(pluginID uint, versionName string) error {
+	logger := log.With().Uint("plugin-id", pluginID).Str("version-name", versionName).Logger()
+	logger.Debug().Msg("Looking for version to delete")
 	version, err := storage.TryFindVersion(pluginID, versionName)
 	if err != nil {
-		// TODO: Add logging
 		if errors.Is(err, ErrVersionNotFound) {
+			logger.Debug().Msg("Version doesn't exist in the first place")
 			return nil
 		} else {
+			logger.Error().Err(err).Msg("Problem getting version for deletion")
 			return err
 		}
 	}
 
+	logger.Debug().Msg("Updating parent plugin while deleting version")
 	if err = storage.HidePluginVersionFromPlugin(pluginID, versionName); err != nil {
+		logger.Error().Err(err).Msg("Can't update parent plugin during version deletion")
 		return fmt.Errorf("can't update parent plugin: %w", err)
 	}
 
 	storage.db.Delete(version)
-	// TODO: Add logging
+	logger.Debug().Msg("Version deleted")
 	return nil
 }
 
@@ -105,26 +96,23 @@ func (storage *Storage) NewVersion(
 	forPluginID uint,
 	versionName, code, aiscript_version string,
 ) error {
+	logger := log.With().Uint("plugin-id", forPluginID).Str("version-name", versionName).Logger()
+	logger.Debug().Msg("Attempting to insert new version for plugin")
 	// First check if a version already exists
 	_, err := storage.TryFindVersion(forPluginID, versionName)
 	if err == nil {
-		logrus.WithFields(logrus.Fields{
-			"pluginID":    forPluginID,
-			"versionName": versionName,
-		}).Debugln("Got no error while looking if a new version already exists. Assuming it exists already, aborting")
+		logger.Warn().
+			Msg("No error received while checking for existence of version. Assuming it already exists and aborting")
 		return ErrAlreadyExists
 	} else if !errors.Is(err, ErrVersionNotFound) {
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"pluginID":    forPluginID,
-			"versionName": versionName,
-		}).Debugln("Got err that is not ErrVersionNotFound from check if plugin version exists, aborting")
+		logger.Error().Err(err).Msg("Got error while trying to verify that version doesn't exist already")
 		return err
 	}
 
 	// Then check if there actually is a plugin with the given ID
 	_, err = storage.GetPluginByID(forPluginID)
 	if err != nil {
-		// TODO: Add logging
+		logger.Error().Err(err).Msg("Error while getting parent plugin for new version")
 		return err
 	}
 
@@ -135,20 +123,21 @@ func (storage *Storage) NewVersion(
 		Code:            code,
 		AiScriptVersion: aiscript_version,
 	}
-	// TODO: Add logging
+	logger.Debug().Msg("Inserting new plugin version into db")
 	result := storage.db.Create(&newVersion)
 	if result.Error != nil {
-		// TODO: Add logging
+		logger.Error().Err(result.Error).Msg("Problem while creating new version")
 		return fmt.Errorf("error trying to create new version: %w", result.Error)
 	}
 
 	// And update the parent plugin
+	logger.Debug().Msg("Updating parent plugin to point at new version")
 	_, err = storage.PushNewPluginVersion(forPluginID, versionName)
 	if err != nil {
-		// TODO: Add logging
+		logger.Error().Err(err).Msg("Failed to update parent plugin for new version")
 		return fmt.Errorf("failed to update plugin info: %w", err)
 	}
 
-	// TODO: Add logging
+	logger.Debug().Msg("New version applied")
 	return nil
 }

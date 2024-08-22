@@ -1,9 +1,10 @@
 package server
 
 import (
+	"context"
 	"net/http"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 
 	"github.com/mstarongithub/mk-plugin-repo/storage"
 	customtypes "github.com/mstarongithub/mk-plugin-repo/storage/customTypes"
@@ -42,8 +43,8 @@ func ServerFromRequest(w http.ResponseWriter, r *http.Request) *Server {
 // 	return a
 // }
 
-func LogFromRequestContext(w http.ResponseWriter, r *http.Request) *logrus.Entry {
-	a, ok := r.Context().Value(CONTEXT_KEY_LOG).(*logrus.Entry)
+func LogFromRequestContext(w http.ResponseWriter, r *http.Request) *zerolog.Logger {
+	a, ok := r.Context().Value(CONTEXT_KEY_LOG).(*zerolog.Logger)
 	if !ok {
 		http.Error(w, "no logger in request context", http.StatusInternalServerError)
 		return nil
@@ -80,4 +81,23 @@ func dbPluginToApiPlugin(plugin *storage.Plugin) Plugin {
 		newPlugin.Type = PLUGIN_TYPE_INVALID
 	}
 	return newPlugin
+}
+
+func passkeyAuthInsertUid(w http.ResponseWriter, r *http.Request) {
+	s := StorageFromRequest(w, r)
+	if s == nil {
+		http.Error(w, "failed to get storage", http.StatusInternalServerError)
+		return
+	}
+	str, ok := r.Context().Value(CONTEXT_KEY_ACTOR_NAME).(string)
+	if !ok {
+		http.Error(w, "actor name not in context", http.StatusInternalServerError)
+		return
+	}
+	acc, err := s.FindAccountByName(str)
+	if err != nil {
+		http.Error(w, "Failed to get account", http.StatusInternalServerError)
+		return
+	}
+	*r = *r.WithContext(context.WithValue(r.Context(), CONTEXT_KEY_ACTOR_ID, acc.ID))
 }

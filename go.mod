@@ -11,9 +11,8 @@ require (
 	github.com/mstarongithub/passkey v0.0.0-20240817142622-de6912c8303e
 	github.com/pquerna/otp v1.4.0
 	github.com/rs/cors v1.11.0
-	github.com/sirupsen/logrus v1.9.3
 	gitlab.com/mstarongitlab/goutils v1.2.0
-	gitlab.com/mstarongitlab/weblogger v1.0.0
+	gitlab.com/mstarongitlab/weblogger v1.2.0
 	gorm.io/driver/sqlite v1.5.5
 	gorm.io/gorm v1.25.9
 )
@@ -24,8 +23,11 @@ require (
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/go-webauthn/x v0.1.12 // indirect
 	github.com/google/go-tpm v0.9.1 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/rs/zerolog v1.33.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/stretchr/testify v1.9.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect

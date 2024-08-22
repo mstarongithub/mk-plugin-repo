@@ -3,7 +3,7 @@ package storage
 import (
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 type PasskeySession struct {
@@ -15,23 +15,23 @@ type PasskeySession struct {
 
 func (s *Storage) GenSessionID() (string, error) {
 	x := uuid.NewString()
-	logrus.WithField("id", x).Debugln("Generating passkey session id")
+	log.Debug().Str("session-id", x).Msg("Generated new passkey session id")
 	return x, nil
 }
 
-func (s *Storage) GetSession(token string) (*webauthn.SessionData, bool) {
-	logrus.WithField("token", token).Debug("Grabbing passkey session")
+func (s *Storage) GetSession(sessionId string) (*webauthn.SessionData, bool) {
+	log.Debug().Str("id", sessionId).Msg("Looking for passkey session")
 	session := PasskeySession{}
-	res := s.db.Where("id = ?", token).First(&session)
+	res := s.db.Where("id = ?", sessionId).First(&session)
 	if res.Error != nil {
 		return nil, false
 	}
-	logrus.WithField("session", &session).Debug("Found session")
+	log.Debug().Str("id", sessionId).Any("webauthn-data", &session).Msg("Found passkey session")
 	return &session.Data, true
 }
 
 func (s *Storage) SaveSession(token string, data *webauthn.SessionData) {
-	logrus.WithField("token", token).WithField("data", data).Debug("Saving passkey session")
+	log.Debug().Str("id", token).Any("webauthn-data", data).Msg("Saving passkey session")
 	session := PasskeySession{
 		ID:   token,
 		Data: *data,
@@ -40,5 +40,6 @@ func (s *Storage) SaveSession(token string, data *webauthn.SessionData) {
 }
 
 func (s *Storage) DeleteSession(token string) {
+	log.Debug().Str("id", token).Msg("Deleting passkey session (if one exists)")
 	s.db.Delete(&PasskeySession{ID: token})
 }

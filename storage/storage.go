@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -27,9 +27,9 @@ var ErrUnauthorised = errors.New("action is unauthorised")
 
 func NewStorage(sqliteFile string, customConfig *gorm.Config) (storage *Storage, err error) {
 	if customConfig == nil {
-		logrus.Infoln("No gorm config provided, using default")
+		log.Info().Msg("No gorm config provided, using default")
 		customConfig = &gorm.Config{
-			Logger: logger.New(logrus.StandardLogger(), logger.Config{
+			Logger: logger.New(&log.Logger, logger.Config{
 				SlowThreshold:             time.Second,
 				LogLevel:                  logger.Error,
 				Colorful:                  false,
@@ -43,11 +43,11 @@ func NewStorage(sqliteFile string, customConfig *gorm.Config) (storage *Storage,
 	}
 	db, err := gorm.Open(sqlite.Open(sqliteFile), customConfig)
 	if err != nil {
-		// TODO: Add logging
+		log.Error().Err(err).Str("db-file", sqliteFile).Msg("Failed to read database file")
 		return storage, fmt.Errorf("failed to read database file %s: %w", sqliteFile, err)
 	}
 	// Migrate stuff
-	// TODO: Add logging
+	log.Debug().Msg("Applying auto-migrations")
 	err = db.AutoMigrate(
 		&Account{},
 		&Plugin{},
@@ -56,7 +56,7 @@ func NewStorage(sqliteFile string, customConfig *gorm.Config) (storage *Storage,
 		&PasskeySession{},
 	)
 	if err != nil {
-		// TODO: Add logging
+		log.Error().Err(err).Msg("Failed to apply auto-migrations")
 		return storage, fmt.Errorf("migration failed: %w", err)
 	}
 	storage.db = db

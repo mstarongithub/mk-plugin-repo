@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 const TOKEN_ISSUER = "mk-plugin-repo-api"
@@ -38,11 +38,11 @@ func VerifyToken(tokenString string) (bool, error) {
 		return false, fmt.Errorf("failed to parse string as token: %w", err)
 	}
 
-	logrus.WithFields(logrus.Fields{
-		"token.issuer":   resToString(token.Claims.GetIssuer()),
-		"token.subject":  resToString(token.Claims.GetSubject()),
-		"token.audience": resToString(token.Claims.GetAudience()),
-	}).Debugln("Verifying token")
+	log.Debug().
+		Str("token-issuer", resToString(token.Claims.GetIssuer())).
+		Str("token-subject", resToString(token.Claims.GetSubject())).
+		Str("token-audience", resToString(token.Claims.GetAudience())).
+		Msg("Verifying token")
 
 	if !token.Valid {
 		return false, ErrInvalidToken

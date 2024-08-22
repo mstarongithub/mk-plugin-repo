@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/BurntSushi/toml"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 const DEFAULT_CONFIG_FILE_NAME = "config.toml"
@@ -114,12 +114,12 @@ func WriteDefaultConfigToDefaultLocation() {
 	f, err := os.Create(DEFAULT_CONFIG_FILE_NAME)
 	defer f.Close()
 	if err != nil {
-		logrus.WithError(err).Errorln("Can't create default config file! Exiting")
+		log.Error().Err(err).Msg("Can't create default config file! Exiting")
 		os.Exit(1)
 	}
 	err = toml.NewEncoder(f).Encode(&defaultConfigData)
 	if err != nil {
-		logrus.WithError(err).Errorln("Failed to write default config to default file! Exiting")
+		log.Error().Err(err).Msg("Failed to write default config to default file! Exiting")
 		os.Exit(1)
 	}
 }

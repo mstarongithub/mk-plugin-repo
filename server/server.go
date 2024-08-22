@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"fmt"
 	"io/fs"
 	"net/http"
@@ -150,24 +149,8 @@ func buildV1RestrictedRouter(pkey *passkey.Passkey) http.Handler {
 		CONTEXT_KEY_ACTOR_NAME,
 		// This func takes the name identified by the passkey auth middleware
 		// and inserts the account ID into the context
-		func(w http.ResponseWriter, r *http.Request) {
-			s := StorageFromRequest(w, r)
-			if s == nil {
-				http.Error(w, "failed to get storage", http.StatusInternalServerError)
-				return
-			}
-			str, ok := r.Context().Value(CONTEXT_KEY_ACTOR_NAME).(string)
-			if !ok {
-				http.Error(w, "actor name not in context", http.StatusInternalServerError)
-				return
-			}
-			acc, err := s.FindAccountByName(str)
-			if err != nil {
-				http.Error(w, "Failed to get account", http.StatusInternalServerError)
-				return
-			}
-			*r = *r.WithContext(context.WithValue(r.Context(), CONTEXT_KEY_ACTOR_ID, acc.ID))
-		},
+		passkeyAuthInsertUid,
+		// TODO: Replace this with func to also check for token before redirecting or refusing
 		passkey.RedirectUnauthorized(url.URL{Path: "/"}),
 	)(
 		router,

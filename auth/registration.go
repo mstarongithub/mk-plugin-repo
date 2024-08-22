@@ -80,7 +80,7 @@ func (a *Auth) RegisterContinuePassword(processId string, passwordRaw string) er
 
 	passwordHash, err := a.hasher.Hash([]byte(passwordRaw))
 	if err != nil {
-		a.log.WithError(err).Debugln("Failed to hash password during register progress")
+		a.log.Warn().Err(err).Msg("Failed to hash password during register progress")
 		return ErrRegisterProcessCancelled
 	}
 	process.PasswordHash = passwordHash
@@ -137,7 +137,7 @@ func (a *Auth) RegisterContinueMfaTotpGenerate(processId string) (error, string,
 
 	totpConfig := totp.GenerateOpts{
 		Issuer: "Mk Plugin Repo on " + util.TakeApartRootUrlString(
-			config.GlobalConfig.General.RootUrl,
+			"http://localhost:8080",
 		).Domain,
 		AccountName: process.Username,
 	}

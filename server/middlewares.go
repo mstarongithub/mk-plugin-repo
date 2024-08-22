@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"gitlab.com/mstarongitlab/weblogger"
 )
 
@@ -172,7 +172,7 @@ func RouteBasedLoggingMiddleware(h http.Handler) http.Handler {
 		newRequest := r.WithContext(context.WithValue(
 			ctx,
 			CONTEXT_KEY_LOG,
-			logrus.WithField("url-path", r.URL.Path),
+			log.With().Str("url-path", r.URL.Path).Logger(),
 		))
 		h.ServeHTTP(w, newRequest)
 	})

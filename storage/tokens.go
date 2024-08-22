@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -14,7 +15,8 @@ type Token struct {
 	ExpiresAt time.Time
 }
 
-func (storage *Storage) InsertNewToken(ID uint, tokenString string, ExpiresAt time.Time) error {
+func (storage *Storage) NewToken(ID uint, ExpiresAt time.Time) (string, error) {
+	tokenString := uuid.NewString()
 	token := Token{
 		Token:     tokenString,
 		UserID:    ID,
@@ -22,7 +24,7 @@ func (storage *Storage) InsertNewToken(ID uint, tokenString string, ExpiresAt ti
 	}
 
 	res := storage.db.Create(&token)
-	return res.Error
+	return tokenString, res.Error
 }
 
 func (storage *Storage) GetTokensForUsername(username string) ([]Token, error) {

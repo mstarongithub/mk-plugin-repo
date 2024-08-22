@@ -3,7 +3,7 @@ package fswrapper
 import (
 	"io/fs"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 // Fix for go:embed file systems including the full path of the embedded files
@@ -23,20 +23,13 @@ func NewFSWrapper(wraps fs.FS, appends string, logAccess bool) *FSWrapper {
 }
 
 func (fs *FSWrapper) Open(name string) (fs.File, error) {
-	if fs.log {
-		logrus.WithFields(logrus.Fields{
-			"prefix":   fs.toAdd,
-			"filename": name,
-			"wrapped":  fs.wrapped,
-		}).Debugln("fswrapper: Opening file with prefix")
-	}
 	res, err := fs.wrapped.Open(fs.toAdd + name)
 	if fs.log {
-		logrus.WithFields(logrus.Fields{
-			"file":      res,
-			"err":       err,
-			"full-file": fs.toAdd + name,
-		}).Debugln("fswrapper: Result of opening file")
+		log.Debug().
+			Str("prefix", fs.toAdd).
+			Str("filename", name).
+			Err(err).
+			Msg("fswrapper: File access result")
 	}
 	return res, err
 }

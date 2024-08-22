@@ -1,6 +1,10 @@
 package storage
 
-import "time"
+import (
+	"time"
+
+	"github.com/rs/zerolog/log"
+)
 
 const (
 	_SERVICE_KEY_OLD_TOKENS  = "Old token cleaner"
@@ -14,6 +18,7 @@ const _ONE_MONTH_BEFORE = time.Hour * 24 * 30 * -1
 func (storage *Storage) serviceCleanOldTokens(exitChan chan any) {
 	storage.serviceWorkersActive.RLock()
 	if storage.serviceWorkersActive.Map[_SERVICE_KEY_OLD_TOKENS] {
+		storage.serviceWorkersActive.RUnlock()
 		return
 	}
 	storage.serviceWorkersActive.RUnlock()
@@ -30,6 +35,7 @@ func (storage *Storage) serviceCleanOldTokens(exitChan chan any) {
 	for {
 		select {
 		case stamp := <-ticker.C:
+			log.Info().Msg("Cleaning up expired tokens")
 			// Use unscoped here to ensure we don't do soft deletions
 			// Old, expired tokens must be gone for good
 			storage.db.Unscoped().Where("expires_at < ?", stamp).Delete(&Token{})
@@ -47,6 +53,7 @@ func (storage *Storage) serviceCleanOldTokens(exitChan chan any) {
 func (storage *Storage) serviceGdprCleanOldDeletedData(exitChan chan any) {
 	storage.serviceWorkersActive.RLock()
 	if storage.serviceWorkersActive.Map[_SERVICE_KEY_GDPR_EXPIRE] {
+		storage.serviceWorkersActive.RUnlock()
 		return
 	}
 	storage.serviceWorkersActive.RUnlock()
@@ -63,6 +70,7 @@ func (storage *Storage) serviceGdprCleanOldDeletedData(exitChan chan any) {
 	for {
 		select {
 		case stamp := <-ticker.C:
+			log.Info().Msg("Cleaning up old deleted data")
 			storage.db.Unscoped().
 				Where("deleted_at IS NOT NULL").
 				Where("deleted_at < ?", stamp.Add(_ONE_MONTH_BEFORE)).

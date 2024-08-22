@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 
 	"github.com/mstarongithub/mk-plugin-repo/storage"
 )
@@ -34,50 +34,31 @@ func getVersion(w http.ResponseWriter, r *http.Request) {
 	}
 	pluginIDString := r.PathValue("pluginId")
 	versionName := r.PathValue("versionName")
+	logger := log.With().Str("plugin-id", pluginIDString).Str("version-name", versionName).Logger()
 	if pluginIDString == "" || versionName == "" {
-		logrus.WithFields(logrus.Fields{
-			"pluginId":    pluginIDString,
-			"versionName": versionName,
-		}).Infoln("Bad path request parameters")
+		logger.Info().Msg("Bad path request parameters")
 		http.Error(w, "bad path parameters", http.StatusBadRequest)
 		return
 	}
 	pluginID, err := strconv.ParseUint(pluginIDString, 10, 0)
 	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"pluginId":    pluginIDString,
-			"versionName": versionName,
-		}).Infoln("Plugin ID is parsable as uint")
+		logger.Info().Err(err).Msg("Plugin ID is not a uint")
 	}
 	version, err := store.TryFindVersion(uint(pluginID), versionName)
 	if err != nil {
 		if errors.Is(err, storage.ErrVersionNotFound) {
-			logrus.WithFields(logrus.Fields{
-				"pluginId":    pluginID,
-				"versionName": versionName,
-			}).Infoln("Plugin version not found")
+			logger.Info().Msg("Plugin version not found")
 		} else {
-			logrus.WithError(err).WithFields(logrus.Fields{
-				"pluginId":    pluginID,
-				"versionName": versionName,
-			}).Error("Problem getting version for plugin")
+			logger.Error().Err(err).Msg("Problem getting version for plugin")
 		}
 	}
-	logrus.WithFields(logrus.Fields{
-		"pluginId":    pluginID,
-		"versionName": versionName,
-		"version":     version,
-	}).Debugln("Found plugin version")
+	logger.Info().Msg("Found version, marshalling and sending off")
 	binaryData, err := json.Marshal(&VersionData{
 		Code:                    version.Code,
 		IntendedAiScriptVersion: version.AiScriptVersion,
 	})
 	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"pluginId":    pluginID,
-			"versionName": versionName,
-			"version":     version,
-		}).Errorln("Failed to marshal version")
+		logger.Error().Err(err).Msg("Failed to marshal version")
 		http.Error(w, "json marshalling failed", http.StatusInternalServerError)
 		return
 	}
@@ -95,18 +76,17 @@ func newVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pluginIDString := r.PathValue("pluginId")
+	logger := log.With().Str("plugin-id", pluginIDString).Logger()
 	if pluginIDString == "" {
-		logrus.WithFields(logrus.Fields{
-			"pluginId": pluginIDString,
-		}).Infoln("Bad path request parameters")
+		logger.Warn().Msg("Bad path request parameters")
 		http.Error(w, "bad path parameters", http.StatusBadRequest)
 		return
 	}
 	pluginID, err := strconv.ParseUint(pluginIDString, 10, 0)
 	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"pluginId": pluginIDString,
-		}).Infoln("Plugin ID is parsable as uint")
+		logger.Warn().Err(err).Msg("Plugin Id is not a uint")
+		http.Error(w, "plugin id not a uint", http.StatusBadRequest)
+		return
 	}
 
 	// Ignore error. Should never fail I think
@@ -114,14 +94,12 @@ func newVersion(w http.ResponseWriter, r *http.Request) {
 	newVersion := NewVersion{}
 	err = json.Unmarshal(body, &newVersion)
 	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"body":           body,
-			"body-as-string": string(body),
-			"pluginId":       pluginID,
-		}).Debugln("Failed to extract new version from body")
+		logger.Warn().Bytes("body", body).Msg("Failed to unmarshal body to Version")
 		http.Error(w, "body is not a json-encoded NewVersion", http.StatusBadRequest)
+		return
 	}
 
+	logger.Debug().Msg("Inserting new plugin version")
 	err = store.NewVersion(
 		uint(pluginID),
 		newVersion.VersionName,
@@ -130,16 +108,10 @@ func newVersion(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		if !errors.Is(err, storage.ErrVersionAlreadyExists) {
-			logrus.WithError(err).WithFields(logrus.Fields{
-				"new-version": newVersion,
-				"pluginId":    pluginID,
-			}).Errorln("failed to create new version")
+			logger.Error().Err(err).Msg("Failed to create new version")
 			http.Error(w, "version creation failed", http.StatusInternalServerError)
 		} else {
-			logrus.WithFields(logrus.Fields{
-				"new-version": newVersion,
-				"pluginId":    pluginID,
-			}).Debugln("version with that name already exists, ignoring")
+			logger.Warn().Msg("Version already exists")
 			http.Error(w, "version already exists", http.StatusNotAcceptable)
 		}
 		return
@@ -157,26 +129,20 @@ func hideVersion(w http.ResponseWriter, r *http.Request) {
 
 	pluginIDString := r.PathValue("pluginId")
 	versionName := r.PathValue("versionName")
+	logger := log.With().Str("plugin-id", pluginIDString).Str("version-name", versionName).Logger()
 	if pluginIDString == "" || versionName == "" {
-		logrus.WithFields(logrus.Fields{
-			"pluginId":    pluginIDString,
-			"versionName": versionName,
-		}).Infoln("Bad path request parameters")
+		logger.Info().Msg("Bad path parameters")
 		http.Error(w, "bad path parameters", http.StatusBadRequest)
 		return
 	}
 	pluginID, err := strconv.ParseUint(pluginIDString, 10, 0)
 	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"pluginId":    pluginIDString,
-			"versionName": versionName,
-		}).Infoln("Plugin ID is parsable as uint")
+		logger.Warn().Err(err).Msg("Plugin ID is not a uint")
+		http.Error(w, "plugin ID not a uint", http.StatusBadRequest)
+		return
 	}
-	if err = store.HideVersion(uint(pluginID), versionName); err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"pluginID":    pluginID,
-			"versionName": versionName,
-		}).Errorln("Error trying to \"delete\" a version")
+	if err = store.DeleteVersion(uint(pluginID), versionName); err != nil {
+		logger.Error().Err(err).Msg("Couldn't delete version")
 		http.Error(w, "problem trying to delete version", http.StatusInternalServerError)
 		return
 	}

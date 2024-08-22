@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/mstarongitlab/goutils/sliceutils"
 
 	"github.com/mstarongithub/mk-plugin-repo/storage"

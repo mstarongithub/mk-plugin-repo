@@ -7,7 +7,8 @@ import (
 
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/mstarongithub/passkey"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
+	"gitlab.com/mstarongitlab/goutils/sliceutils"
 	"gorm.io/gorm"
 
 	customtypes "github.com/mstarongithub/mk-plugin-repo/storage/customTypes"
@@ -46,69 +47,83 @@ var ErrAccountNotFound = errors.New("account not found")
 var ErrAccountNotApproved = errors.New("account not approved for this action")
 
 func (s *Storage) FindAccountByName(name string) (*Account, error) {
-	// TODO: Add logging
+	logger := log.With().Str("account-name", name).Logger()
+	logger.Debug().Msg("Looking for account")
 	acc := Account{}
 
 	res := s.db.First(&acc, "name = ?", name)
-	if res.RowsAffected == 0 {
-		// TODO: Add logging
+	if res.RowsAffected == 0 || errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		logger.Debug().Msg("No account found")
 		return nil, ErrAccountNotFound
 	} else if res.Error != nil {
-		// TODO: Add logging
+		logger.Error().Err(res.Error).Msg("Problem while looking for account")
 		return nil, fmt.Errorf("error while searching for account %s: %w", name, res.Error)
 	}
-	// TODO: Add logging
+	logger.Info().Msg("Found account")
 	return &acc, nil
 }
 
 func (s *Storage) FindAccountByID(id uint) (*Account, error) {
 	acc := Account{}
-	// TODO: Add logging
+	logger := log.With().Uint("account-id", id).Logger()
+	logger.Debug().Msg("Looking for account")
 	res := s.db.First(&acc, id)
-	if res.RowsAffected == 0 {
-		// TODO: Add logging
+	if res.RowsAffected == 0 || errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		logger.Debug().Msg("No account found")
 		return nil, ErrAccountNotFound
 	} else if res.Error != nil {
-		// TODO: Add logging
+		logger.Error().Err(res.Error).Msg("Problem while looking for account")
 		return nil, fmt.Errorf("problem while finding account id %d: %w", id, res.Error)
 	}
-	// TODO: Add logging
+	logger.Info().Msg("Found account")
 	return &acc, nil
 }
 
 func (s *Storage) AddNewAccount(acc Account) (uint, error) {
+	log.Debug().Any("account-full", &acc).Msg("Adding new account")
 	res := s.db.Create(&acc)
 	if res.Error != nil {
+		log.Error().Err(res.Error).Any("account-full", &acc).Msg("Failed to add new account")
 		return 0, res.Error
 	}
+	log.Info().Uint("account-id", acc.ID).Msg("New account added")
 	return acc.ID, nil
 }
 
 func (s *Storage) UpdateAccount(acc *Account) error {
+	log.Debug().Uint("account-id", acc.ID).Msg("Updating account")
 	res := s.db.Save(acc)
+	if res.Error != nil {
+		log.Error().Err(res.Error).Uint("account-id", acc.ID).Msg("Failed to update account")
+	} else {
+		log.Info().Uint("account-id", acc.ID).Msg("Updated account")
+	}
 	return res.Error
 }
 
 func (s *Storage) GetAllUnapprovedAccounts() ([]Account, error) {
 	accs := []Account{}
+	log.Debug().Msg("Looking for all unapproved accounts")
 	res := s.db.Where("approved = ?", false).Find(&accs)
 	if res.Error != nil && !errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		log.Error().Err(res.Error).Msg("Failed to get unapproved accounts from db")
 		return nil, res.Error
 	}
+	log.Info().
+		Uints("account-ids", sliceutils.Map(accs, func(t Account) uint { return t.ID })).
+		Msg("Found unapproved accounts")
 	return accs, nil
 }
 
 func (s *Storage) DeleteAccount(id uint) {
+	log.Debug().Uint("account-id", id).Msg("Deleting account")
 	s.db.Delete(&Account{}, id)
+	log.Info().Uint("account-id", id).Msg("Account deleted")
 }
 
 // ---- Section webauthn.User
 
 func (u *Account) WebAuthnID() []byte {
-	logrus.WithFields(logrus.Fields{
-		"name":  u.Name,
-		"pk-id": u.PasskeyId,
-	}).Debug("Returning passkey id for acc")
 	return u.PasskeyId
 }
 
@@ -137,10 +152,13 @@ func (u *Account) PutCredential(new webauthn.Credential) {
 // Section passkey.UserStore
 
 func (s *Storage) GetOrCreateUser(userID string) passkey.User {
-	logrus.WithField("userId", userID).Debugln("Searching or creating user for passkey stuff")
+	log.Debug().Str("account-name", userID).Msg("Searching or creating user for passkey stuff")
 	acc := &Account{}
 	s.db.Model(&Account{}).Where("name = ?", userID).FirstOrCreate(acc)
 	if acc.PasskeyId == nil || len(acc.PasskeyId) == 0 {
+		log.Debug().
+			Str("account-name", userID).
+			Msg("Account doesn't have a passkey id yet, creating one")
 		data := make([]byte, 64)
 		c, err := rand.Read(data)
 		for err != nil || c != len(data) || c < 64 {
@@ -151,19 +169,33 @@ func (s *Storage) GetOrCreateUser(userID string) passkey.User {
 	}
 	acc.Name = userID
 	s.db.Save(acc)
+	log.Info().Uint("account-id", acc.ID).Msg("Found or created account for passkey stuff")
 	return acc
 }
 
 func (s *Storage) GetUserByWebAuthnId(id []byte) passkey.User {
 	acc := &Account{}
-	s.db.Model(acc).Where("passkey_id = ?", id).First(acc)
+	log.Debug().Msg("looking for account with passkey id")
+	res := s.db.Model(acc).Where("passkey_id = ?", id).First(acc)
+	if res.Error != nil {
+		log.Error().
+			Err(res.Error).
+			Bytes("passkey-id", id).
+			Msg("Failed to find account with passkey id")
+		return nil
+	}
+	log.Info().Uint("account-id", acc.ID).Msg("Found account by passkey id")
 	return acc
 }
 
 func (s *Storage) SaveUser(rawUser passkey.User) {
 	user, ok := rawUser.(*Account)
 	if !ok {
+		log.Error().
+			Any("raw-account", rawUser).
+			Msg("Given passkey user couldn't be cast into a db user")
 		return
 	}
 	s.db.Save(user)
+	log.Info().Uint("account-id", user.ID).Msg("Updated account from passkey data")
 }

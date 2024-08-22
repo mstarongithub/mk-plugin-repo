@@ -6,7 +6,8 @@ import (
 
 	"github.com/ermites-io/passwd"
 	"github.com/go-webauthn/webauthn/webauthn"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/mstarongithub/mk-plugin-repo/config"
 	"github.com/mstarongithub/mk-plugin-repo/storage"
@@ -28,7 +29,7 @@ type Auth struct {
 	activeAuthRequests map[string]TempAuthRequest
 	registerRequests   RegisterRequestHolder
 	authMode           AuthProviderMode
-	log                *logrus.Entry
+	log                zerolog.Logger
 }
 
 type TempAuthRequest struct {
@@ -59,11 +60,12 @@ func NewAuth(store *storage.Storage, mode AuthProviderMode) (*Auth, error) {
 	}
 	webAuthConf := webauthn.Config{}
 	webAuthConf.RPDisplayName = config.GlobalConfig.WebAuth.DisplayName
-	tmpUrl, err := url.Parse(config.GlobalConfig.General.RootUrl)
+
+	tmpUrl, err := url.Parse("http://localhost:8080")
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to parse root url %q: %w",
-			config.GlobalConfig.General.RootUrl,
+			"http://localhost:8080",
 			err,
 		)
 	}
@@ -83,7 +85,7 @@ func NewAuth(store *storage.Storage, mode AuthProviderMode) (*Auth, error) {
 		webAuth:            webAuth,
 		hasher:             hasher,
 		activeAuthRequests: map[string]TempAuthRequest{},
-		log:                logrus.WithField("layer", "auth"),
+		log:                log.Logger,
 		authMode:           mode,
 		registerRequests: RegisterRequestHolder{
 			Requests: map[string]RegisterProcess{},
