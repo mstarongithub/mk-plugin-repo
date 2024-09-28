@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/rs/zerolog/hlog"
 	"gitlab.com/mstarongitlab/goutils/sliceutils"
 
 	"github.com/mstarongithub/mk-plugin-repo/storage"
@@ -68,14 +69,15 @@ func getPluginList(w http.ResponseWriter, r *http.Request) {
 	if store == nil {
 		return
 	}
+	log := hlog.FromRequest(r)
 	dbPlugins := store.GetAllPlugins()
 	apiPlugins := sliceutils.Map(dbPlugins, func(p storage.Plugin) Plugin {
 		return dbPluginToApiPlugin(&p)
 	})
-	logrus.WithFields(logrus.Fields{
-		"db-plugins":  dbPlugins,
-		"api-plugins": apiPlugins,
-	}).Debugln("Found plugins with conversion")
+
+	log.Debug().
+		Uints("db-plugins", sliceutils.Map(dbPlugins, func(t storage.Plugin) uint { return t.ID })).
+		Msg("Found plugins")
 	if len(dbPlugins) == 0 {
 		return
 	}
@@ -83,9 +85,9 @@ func getPluginList(w http.ResponseWriter, r *http.Request) {
 	r.Header.Add("Content-Type", "application/json")
 	data, err := json.Marshal(apiPlugins)
 	if err != nil {
-		logrus.WithError(err).
-			WithField("plugins", apiPlugins).
-			Errorln("Failed to convert plugins to json")
+		log.Error().Err(err).
+			Uints("plugins", sliceutils.Map(dbPlugins, func(t storage.Plugin) uint { return t.ID })).
+			Msg("Failed to convert plugins to json")
 		http.Error(w, "json conversion failed", http.StatusInternalServerError)
 		return
 	}
@@ -106,15 +108,16 @@ func addNewPlugin(w http.ResponseWriter, r *http.Request) {
 	if actorId == nil {
 		return
 	}
+	log := hlog.FromRequest(r)
 
 	body, _ := io.ReadAll(r.Body)
 
 	newPlugin := NewPluginData{}
 	err := json.Unmarshal(body, &newPlugin)
 	if err != nil {
-		logrus.WithError(err).
-			WithField("body", string(body)).
-			Errorln("Failed to parse json from body")
+		log.Error().Err(err).
+			Bytes("body", body).
+			Msg("Failed to parse json from body")
 		http.Error(
 			w,
 			"body must be a json-encoded representation of NewPluginData",
@@ -131,10 +134,10 @@ func addNewPlugin(w http.ResponseWriter, r *http.Request) {
 		pluginType = customtypes.PLUGIN_TYPE_WIDGET
 	}
 	// Then try throwing it into the db
-	logrus.WithFields(logrus.Fields{
-		"plugin": newPlugin,
-		"uid":    *actorId,
-	}).Debugln("Attempting to add plugin to db")
+	log.Debug().
+		Any("plugin", newPlugin).
+		Uint("actor", *actorId).
+		Msg("Attempting to add plugin to db")
 	_, err = store.NewPlugin(
 		newPlugin.Name,
 		*actorId,
@@ -147,7 +150,7 @@ func addNewPlugin(w http.ResponseWriter, r *http.Request) {
 		newPlugin.AIScriptVersion,
 	)
 	if err != nil {
-		logrus.WithError(err).WithField("plugin", newPlugin).Errorln("Failed to add plugin to db")
+		log.Error().Err(err).Any("plugin", newPlugin).Msg("Failed to add plugin to db")
 		http.Error(
 			w,
 			fmt.Sprintf("failed to insert new plugin. Error: %s", err.Error()),
@@ -164,10 +167,7 @@ func getSpecificPlugin(w http.ResponseWriter, r *http.Request) {
 	if store == nil {
 		return
 	}
-	log := LogFromRequestContext(w, r)
-	if log == nil {
-		return
-	}
+	log := hlog.FromRequest(r)
 
 	pluginID := r.PathValue("pluginId")
 	if pluginID == "" {
@@ -187,7 +187,7 @@ func getSpecificPlugin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad plugin ID", http.StatusBadRequest)
 		return
 	}
-	log.WithField("plugin-id", pID).Infoln("Requested public plugin data")
+	log.Info().Uint64("plugin-id", pID).Msg("Requested public plugin data")
 
 	storagePlugin, err := store.GetPluginByID(uint(pID))
 	if err != nil {
@@ -196,7 +196,7 @@ func getSpecificPlugin(w http.ResponseWriter, r *http.Request) {
 			// Not necessary to log this case
 			http.Error(w, "plugin not found", http.StatusNotFound)
 		} else {
-			log.WithError(err).WithField("plugin-id", pID).Warningln("Failed to get plugin from storage layer")
+			log.Warn().Err(err).Uint64("plugin-id", pID).Msg("Failed to get plugin from storage layer")
 			http.Error(w, "error getting plugin from storage layer", http.StatusInternalServerError)
 		}
 		return
@@ -204,7 +204,7 @@ func getSpecificPlugin(w http.ResponseWriter, r *http.Request) {
 	apiPlugin := dbPluginToApiPlugin(storagePlugin)
 	jbody, err := json.Marshal(&apiPlugin)
 	if err != nil {
-		log.WithError(err).WithField("plugin-id", pID).Warning("Failed to encode result to json")
+		log.Warn().Err(err).Uint64("plugin-id", pID).Msg("Failed to encode result to json")
 		http.Error(w, "json encoding failed", http.StatusInternalServerError)
 		return
 	}
@@ -219,10 +219,7 @@ func updateSpecificPlugin(w http.ResponseWriter, r *http.Request) {
 	if store == nil {
 		return
 	}
-	log := LogFromRequestContext(w, r)
-	if log == nil {
-		return
-	}
+	log := hlog.FromRequest(r)
 	accId := AccIdFromRequestContext(w, r)
 	if accId == nil {
 		return
@@ -244,7 +241,7 @@ func updateSpecificPlugin(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, storage.ErrPluginNotFound) {
 			http.Error(w, "plugin not found", http.StatusNotFound)
 		} else {
-			log.WithError(err).WithField("plugin-id", pluginID).Warningln("Failed to get plugin from storage layer")
+			log.Warn().Err(err).Uint64("plugin-id", pluginID).Msg("Failed to get plugin from storage layer")
 			http.Error(w, "problem getting plugin from storage layer", http.StatusInternalServerError)
 		}
 		return

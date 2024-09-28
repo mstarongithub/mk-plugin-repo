@@ -3,14 +3,17 @@ package server
 import (
 	"context"
 	"net/http"
+	"slices"
+	"time"
 
+	"github.com/rs/zerolog/hlog"
 	"github.com/rs/zerolog/log"
-	"gitlab.com/mstarongitlab/weblogger"
 )
 
 type HandlerBuilder func(http.Handler) http.Handler
 
 func ChainMiddlewares(base http.Handler, links ...HandlerBuilder) http.Handler {
+	slices.Reverse(links)
 	for _, f := range links {
 		base = f(base)
 	}
@@ -31,12 +34,21 @@ func ContextValsMiddleware(pairs map[any]any) HandlerBuilder {
 }
 
 func WebLoggerWrapper(h http.Handler) http.Handler {
-	return weblogger.LoggingMiddleware(
-		h,
-		&weblogger.Config{
-			DefaultLogLevel:    weblogger.LOG_LEVEL_DEBUG,
-			FailedRequestLevel: weblogger.LOG_LEVEL_WARN,
-		},
+	return ChainMiddlewares(h,
+		hlog.NewHandler(log.Logger),
+		hlog.AccessHandler(func(r *http.Request, status, size int, duration time.Duration) {
+			hlog.FromRequest(r).Info().
+				Str("method", r.Method).
+				Stringer("url", r.URL).
+				Int("status", status).
+				Int("size", size).
+				Dur("duration", duration).
+				Send()
+		}),
+		hlog.RemoteAddrHandler("ip"),
+		hlog.UserAgentHandler("user-agent"),
+		hlog.RefererHandler("referer"),
+		hlog.RequestIDHandler("request-id", "Request-Id"),
 	)
 }
 
@@ -111,14 +123,11 @@ func CanApproveNotesOnlyMiddleware(h http.Handler) http.Handler {
 		if store == nil {
 			return
 		}
-		log := LogFromRequestContext(w, r)
-		if log != nil {
-			return
-		}
+		log := hlog.FromRequest(r)
 		acc, err := store.FindAccountByID(*accId)
 		if err != nil {
-			log.WithError(err).
-				Warningln("Failed to get account from id after acc is already verified")
+			log.Warn().Err(err).
+				Msg("Failed to get account from id after acc is already verified")
 			http.Error(
 				w,
 				http.StatusText(http.StatusInternalServerError),
@@ -143,14 +152,11 @@ func CanApproveUsersOnlyMiddleware(h http.Handler) http.Handler {
 		if store == nil {
 			return
 		}
-		log := LogFromRequestContext(w, r)
-		if log == nil {
-			return
-		}
+		log := hlog.FromRequest(r)
 		acc, err := store.FindAccountByID(*accId)
 		if err != nil {
-			log.WithError(err).
-				Warningln("Failed to get account from id after acc is already verified")
+			log.Warn().Err(err).
+				Msg("Failed to get account from id after acc is already verified")
 			http.Error(
 				w,
 				http.StatusText(http.StatusInternalServerError),

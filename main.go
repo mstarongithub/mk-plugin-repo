@@ -2,13 +2,15 @@ package main
 
 import (
 	"embed"
-	"fmt"
+	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/mstarongithub/passkey"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/mstarongithub/mk-plugin-repo/config"
 	"github.com/mstarongithub/mk-plugin-repo/fswrapper"
@@ -22,14 +24,14 @@ const DB_DEFAULT_FILE = "db.sqlite"
 //go:embed frontend/build frontend/build/_app/*
 var frontendFS embed.FS
 
-var authMode string = "prod"
-
 func main() {
+	setLogger()
 	setLogLevelFromEnv()
 	_, err := config.ReadConfig(nil)
 	if err != nil {
-		logrus.WithError(err).
-			Warnln("Err reading config, using default and attempting to write it to default location")
+		log.Warn().
+			Err(err).
+			Msg("Err reading config, using default and attempting to write it to default location")
 		config.SetGlobalToDefault()
 		config.WriteDefaultConfigToDefaultLocation()
 	}
@@ -41,7 +43,7 @@ func main() {
 
 	store, err := storage.NewStorage(DB_DEFAULT_FILE, nil)
 	if err != nil {
-		logrus.WithError(err).Fatal("Failed to setup storage layer")
+		log.Fatal().Err(err).Msg("Failed to setup storage layer")
 		os.Exit(1)
 	}
 	stopServiceWorkersFunc := store.LaunchMiniServices()
@@ -75,10 +77,10 @@ func main() {
 			SessionStore:  store,
 			SessionMaxAge: time.Hour * 24,
 		},
-		passkey.WithLogger(logrus.StandardLogger()),
+		passkey.WithLogger(&util.ZerologWrapper{}),
 	)
 	if err != nil {
-		logrus.WithError(err).Fatal("Failed to configure passkeys")
+		log.Fatal().Err(err).Msg("Failed to configure passkeys")
 	}
 
 	httpServer, err := server.NewServer(
@@ -93,20 +95,32 @@ func main() {
 }
 
 func setLogLevelFromEnv() {
-	level := os.Getenv("MK_REPO_LOG_LEVEL")
-	fmt.Printf("Log level received from env: %s\n", level)
-	switch level {
+	switch strings.ToLower(*flagLogLevel) {
 	case "debug":
-		logrus.SetLevel(logrus.DebugLevel)
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	case "info":
-		logrus.SetLevel(logrus.InfoLevel)
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	case "warn":
-		logrus.SetLevel(logrus.WarnLevel)
+		zerolog.SetGlobalLevel(zerolog.WarnLevel)
 	case "error":
-		logrus.SetLevel(logrus.ErrorLevel)
+		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
 	case "fatal":
-		logrus.SetLevel(logrus.FatalLevel)
+		zerolog.SetGlobalLevel(zerolog.FatalLevel)
 	default:
-		logrus.SetLevel(logrus.InfoLevel)
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	}
+}
+
+func setLogger(extraLogWriters ...io.Writer) {
+	if *flagPrettyPrint {
+		console := zerolog.ConsoleWriter{Out: os.Stderr}
+		log.Logger = zerolog.New(zerolog.MultiLevelWriter(append([]io.Writer{console}, extraLogWriters...)...)).
+			With().
+			Timestamp().
+			Logger()
+	} else {
+		log.Logger = zerolog.New(zerolog.MultiLevelWriter(
+			append([]io.Writer{log.Logger}, extraLogWriters...)...,
+		)).With().Timestamp().Logger()
 	}
 }

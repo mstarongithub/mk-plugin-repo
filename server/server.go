@@ -9,7 +9,7 @@ import (
 
 	"github.com/mstarongithub/passkey"
 	"github.com/rs/cors"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 
 	"github.com/mstarongithub/mk-plugin-repo/storage"
 )
@@ -62,7 +62,6 @@ func NewServer(
 			},
 		),
 		cors.AllowAll().Handler,
-		RouteBasedLoggingMiddleware,
 		WebLoggerWrapper,
 	)
 
@@ -91,7 +90,7 @@ func buildFrontendRouter(frontendFS fs.FS) http.Handler {
 }
 
 func (s *Server) Run(addr string) error {
-	logrus.WithField("adress", addr).Infoln("Starting webserver")
+	log.Info().Str("address", addr).Msg("Starting webserver")
 	return http.ListenAndServe(addr, s.handler)
 }
 

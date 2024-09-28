@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/rs/zerolog/hlog"
+	"gitlab.com/mstarongitlab/goutils/other"
 	"gitlab.com/mstarongitlab/goutils/sliceutils"
 
 	"github.com/mstarongithub/mk-plugin-repo/storage"
@@ -32,33 +34,34 @@ type AccountData struct {
 }
 
 func VerifyUserHandler(w http.ResponseWriter, r *http.Request) {
-	log := LogFromRequestContext(w, r)
-	if log == nil {
-		return
-	}
+	log := hlog.FromRequest(r)
 	store := StorageFromRequest(w, r)
 	if store == nil {
 		return
 	}
 	rawData, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(
-			w,
-			http.StatusText(http.StatusBadRequest),
-			http.StatusBadRequest,
-		)
+		other.HttpErr(w, ErrIdBadRequest, "invalid request body", http.StatusBadRequest)
 		return
 	}
 	data := VerifyThing{}
 	err = json.Unmarshal(rawData, &data)
 	if err != nil {
-		http.Error(w, "body not json data", http.StatusBadRequest)
+		other.HttpErr(w, ErrIdBadRequest, "body not json data", http.StatusBadRequest)
 		return
 	}
 	target, err := store.FindAccountByID(data.Id)
-	if err != nil {
-		http.Error(w, "bad account id", http.StatusBadRequest)
-		return
+	switch err {
+	case nil:
+	case storage.ErrAccountNotFound:
+		other.HttpErr(w, ErrIdDataNotFound, "account not found", http.StatusNotFound)
+	default:
+		other.HttpErr(
+			w,
+			ErrIdDbErr,
+			"db error while looking for account",
+			http.StatusInternalServerError,
+		)
 	}
 	if target.Approved {
 		return
@@ -66,48 +69,51 @@ func VerifyUserHandler(w http.ResponseWriter, r *http.Request) {
 	target.Approved = true
 	err = store.UpdateAccount(target)
 	if err != nil {
-		log.WithError(err).
-			WithField("target-id", target.ID).
-			Warningln("Failed to approve user in db")
-		http.Error(w, "failed to update account in db", http.StatusInternalServerError)
+		log.Warn().Err(err).
+			Uint("target-id", target.ID).
+			Msg("Failed to approve user in db")
+		other.HttpErr(w, ErrIdDbErr, "failed to update in db", http.StatusInternalServerError)
 		return
 	}
 }
 
 func VerifyNewPluginHandler(w http.ResponseWriter, r *http.Request) {
-	log := LogFromRequestContext(w, r)
-	if log == nil {
-		return
-	}
+	log := hlog.FromRequest(r)
 	store := StorageFromRequest(w, r)
 	if store == nil {
 		return
 	}
 	rawData, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(
-			w,
-			http.StatusText(http.StatusBadRequest),
-			http.StatusBadRequest,
-		)
+		other.HttpErr(w, ErrIdBadRequest, "invalid request body", http.StatusBadRequest)
 		return
 	}
 	data := VerifyThing{}
 	err = json.Unmarshal(rawData, &data)
 	if err != nil {
-		http.Error(w, "body not json data", http.StatusBadRequest)
+		other.HttpErr(w, ErrIdBadRequest, "body not json data", http.StatusBadRequest)
 		return
 	}
 	plugin, err := store.GetPluginByID(data.Id)
-	if err != nil {
-		http.Error(w, "plugin not found", http.StatusBadRequest)
+	switch err {
+	case nil:
+	case storage.ErrPluginNotFound:
+		other.HttpErr(w, ErrIdDataNotFound, "plugin not found", http.StatusNotFound)
+		return
+	default:
+		other.HttpErr(
+			w,
+			ErrIdDbErr,
+			"db problem while looking for plugin",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 	plugin.Approved = true
 	err = store.UpdatePlugin(plugin)
 	if err != nil {
-		log.WithError(err).WithField("plugin-id", plugin.ID).Warningln("Failed to approve plugin")
-		http.Error(w, "failed to update", http.StatusInternalServerError)
+		log.Warn().Err(err).Uint("plugin-id", plugin.ID).Msg("Failed to approve plugin")
+		other.HttpErr(w, ErrIdDbErr, "failed to update db", http.StatusInternalServerError)
 	}
 }
 
@@ -116,16 +122,14 @@ func GetAllUnverifiedPluginshandler(w http.ResponseWriter, r *http.Request) {
 	if store == nil {
 		return
 	}
-	log := LogFromRequestContext(w, r)
-	if log == nil {
-		return
-	}
+	log := hlog.FromRequest(r)
 	plugins, err := store.GetUnapprovedPlugins()
 	if err != nil {
-		log.WithError(err).Warningln("Failed to get list of unapproved plugins from db")
-		http.Error(
+		log.Error().Err(err).Msg("Failed to get list of unapproved plugins from db")
+		other.HttpErr(
 			w,
-			http.StatusText(http.StatusInternalServerError),
+			ErrIdDbErr,
+			"db error while looking for plugins",
 			http.StatusInternalServerError,
 		)
 		return
@@ -135,8 +139,8 @@ func GetAllUnverifiedPluginshandler(w http.ResponseWriter, r *http.Request) {
 	})
 	data, err := json.Marshal(&ids)
 	if err != nil {
-		log.WithError(err).WithField("ids", ids).Warningln("Failed to marshal ids to json")
-		http.Error(w, "failed to marshal ids to json", http.StatusInternalServerError)
+		log.Warn().Err(err).Uints("ids", ids).Msg("Failed to marshal ids to json")
+		other.HttpErr(w, ErrIdJsonMarshal, "json marshal fail", http.StatusInternalServerError)
 		return
 	}
 	fmt.Fprint(w, string(data))
@@ -147,16 +151,14 @@ func GetAllUnverifiedAccountsHandler(w http.ResponseWriter, r *http.Request) {
 	if store == nil {
 		return
 	}
-	log := LogFromRequestContext(w, r)
-	if log == nil {
-		return
-	}
+	log := hlog.FromRequest(r)
 	plugins, err := store.GetAllUnapprovedAccounts()
 	if err != nil {
-		log.WithError(err).Warningln("Failed to get list of unapproved accounts from db")
-		http.Error(
+		log.Error().Err(err).Msg("Failed to get list of unapproved accounts from db")
+		other.HttpErr(
 			w,
-			http.StatusText(http.StatusInternalServerError),
+			ErrIdDbErr,
+			"db error while getting unapproved accounts",
 			http.StatusInternalServerError,
 		)
 		return
@@ -166,45 +168,53 @@ func GetAllUnverifiedAccountsHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	data, err := json.Marshal(&ids)
 	if err != nil {
-		log.WithError(err).WithField("ids", ids).Warningln("Failed to marshal ids to json")
-		http.Error(w, "failed to marshal ids to json", http.StatusInternalServerError)
+		log.Warn().Err(err).Uints("ids", ids).Msg("Failed to marshal ids to json")
+		other.HttpErr(
+			w,
+			ErrIdJsonMarshal,
+			"json marshalling failed",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 	fmt.Fprint(w, string(data))
 }
 
 func PromotePluginAdminHandler(w http.ResponseWriter, r *http.Request) {
-	log := LogFromRequestContext(w, r)
-	if log == nil {
-		return
-	}
+	log := hlog.FromRequest(r)
 	store := StorageFromRequest(w, r)
 	if store == nil {
 		return
 	}
 	rawData, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(
-			w,
-			http.StatusText(http.StatusBadRequest),
-			http.StatusBadRequest,
-		)
+		other.HttpErr(w, ErrIdBadRequest, "bad request body", http.StatusBadRequest)
 		return
 	}
 	data := VerifyThing{}
 	err = json.Unmarshal(rawData, &data)
 	if err != nil {
-		http.Error(w, "body not json data", http.StatusBadRequest)
+		other.HttpErr(w, ErrIdBadRequest, "body not json data", http.StatusBadRequest)
 		return
 	}
 	acc, err := store.FindAccountByID(data.Id)
-	if err != nil {
-		log.WithError(err).Warningln("Failed to get account to promote to plugin admin")
-		http.Error(w, "problem finding account", http.StatusBadRequest)
+	switch err {
+	case nil:
+	case storage.ErrAccountNotFound:
+		other.HttpErr(w, ErrIdDataNotFound, "target account doesn't exist", http.StatusNotFound)
+		return
+	default:
+		log.Error().Err(err).Msg("Failed to get account to promote to plugin admin")
+		other.HttpErr(
+			w,
+			ErrIdDbErr,
+			"db error while getting target account",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 	if !acc.Approved {
-		http.Error(w, "target account not Approved", http.StatusBadRequest)
+		other.HttpErr(w, ErrIdNotApproved, "target account not approved", http.StatusBadRequest)
 		return
 	}
 	acc.CanApprovePlugins = true
@@ -212,37 +222,40 @@ func PromotePluginAdminHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func PromoteAccountAdminHandler(w http.ResponseWriter, r *http.Request) {
-	log := LogFromRequestContext(w, r)
-	if log == nil {
-		return
-	}
+	log := hlog.FromRequest(r)
 	store := StorageFromRequest(w, r)
 	if store == nil {
 		return
 	}
 	rawData, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(
-			w,
-			http.StatusText(http.StatusBadRequest),
-			http.StatusBadRequest,
-		)
+		other.HttpErr(w, ErrIdBadRequest, "bad request body", http.StatusBadRequest)
 		return
 	}
 	data := VerifyThing{}
 	err = json.Unmarshal(rawData, &data)
 	if err != nil {
-		http.Error(w, "body not json data", http.StatusBadRequest)
+		other.HttpErr(w, ErrIdBadRequest, "body not required json data", http.StatusBadRequest)
 		return
 	}
 	acc, err := store.FindAccountByID(data.Id)
-	if err != nil {
-		log.WithError(err).Warningln("Failed to get account to promote to plugin admin")
-		http.Error(w, "problem finding account", http.StatusBadRequest)
+	switch err {
+	case nil:
+	case storage.ErrAccountNotFound:
+		other.HttpErr(w, ErrIdDataNotFound, "Target account not found", http.StatusNotFound)
+		return
+	default:
+		log.Error().Err(err).Msg("Db failure while getting account for promotion")
+		other.HttpErr(
+			w,
+			ErrIdDbErr,
+			"db error while getting account for promotion",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 	if !acc.Approved {
-		http.Error(w, "target account not Approved", http.StatusBadRequest)
+		other.HttpErr(w, ErrIdNotApproved, "target account not approved", http.StatusBadRequest)
 		return
 	}
 	acc.CanApproveUsers = true
@@ -250,10 +263,6 @@ func PromoteAccountAdminHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteAccountHandler(w http.ResponseWriter, r *http.Request) {
-	log := LogFromRequestContext(w, r)
-	if log == nil {
-		return
-	}
 	store := StorageFromRequest(w, r)
 	if store == nil {
 		return
@@ -262,42 +271,52 @@ func DeleteAccountHandler(w http.ResponseWriter, r *http.Request) {
 	if actorId == nil {
 		return
 	}
+	log := hlog.FromRequest(r)
 	actor, err := store.FindAccountByID(*actorId)
-	if err != nil {
-		http.Error(
+	switch err {
+	case nil:
+	case storage.ErrAccountNotFound:
+		log.Warn().Uint("actor", *actorId).Msg("Actor performing account deletion not found")
+		other.HttpErr(
 			w,
-			http.StatusText(http.StatusInternalServerError),
+			ErrIdDataNotFound,
+			"Actor performing deletion not found",
+			http.StatusNotFound,
+		)
+		return
+	default:
+		log.Error().
+			Err(err).
+			Uint("actor-id", *actorId).
+			Msg("Problem getting actor for account deletion from db")
+		other.HttpErr(
+			w,
+			ErrIdDbErr,
+			"Db failure while getting actor performing deletion",
 			http.StatusInternalServerError,
 		)
 		return
 	}
 	rawData, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(
-			w,
-			http.StatusText(http.StatusBadRequest),
-			http.StatusBadRequest,
-		)
+		other.HttpErr(w, ErrIdBadRequest, "bad request body", http.StatusBadRequest)
 		return
 	}
 	data := VerifyThing{}
 	err = json.Unmarshal(rawData, &data)
 	if err != nil {
-		http.Error(w, "body not json data", http.StatusBadRequest)
+		other.HttpErr(w, ErrIdBadRequest, "body not required json data", http.StatusBadRequest)
 		return
 	}
 	if data.Id != *actorId && !actor.CanApproveUsers {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		other.HttpErr(w, ErrIdNotApproved, "operation forbidden", http.StatusForbidden)
 		return
 	}
 	store.DeleteAccount(data.Id)
 }
 
 func DemotePluginAdminHandler(w http.ResponseWriter, r *http.Request) {
-	log := LogFromRequestContext(w, r)
-	if log == nil {
-		return
-	}
+	log := hlog.FromRequest(r)
 	store := StorageFromRequest(w, r)
 	if store == nil {
 		return
@@ -308,28 +327,40 @@ func DemotePluginAdminHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	rawData, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(
-			w,
-			http.StatusText(http.StatusBadRequest),
-			http.StatusBadRequest,
-		)
+		other.HttpErr(w, ErrIdBadRequest, "bad request body", http.StatusBadRequest)
 		return
 	}
 	data := VerifyThing{}
 	err = json.Unmarshal(rawData, &data)
 	if err != nil {
-		http.Error(w, "body not json data", http.StatusBadRequest)
+		other.HttpErr(w, ErrIdBadRequest, "body not expected json data", http.StatusBadRequest)
 		return
 	}
 	acc, err := store.FindAccountByID(data.Id)
-	if err != nil {
-		log.WithError(err).Warningln("Failed to get account to promote to plugin admin")
-		http.Error(w, "problem finding account", http.StatusBadRequest)
+	switch err {
+	case nil:
+	case storage.ErrAccountNotFound:
+		other.HttpErr(w, ErrIdDataNotFound, "account to demote not found", http.StatusNotFound)
+		return
+	default:
+		other.HttpErr(
+			w,
+			ErrIdDbErr,
+			"db error while getting account to demote",
+			http.StatusInternalServerError,
+		)
+		log.Error().Err(err).Uint("account-id", data.Id).Msg("Db failure while getting an account")
 		return
 	}
-	if acc.ID == 0 {
-		log.WithField("actor", *actorId).
-			Warningln("Account admin tried to demote the superuser! Refusing attempt")
+	if acc.ID == 1 {
+		log.Warn().Uint("actor", *actorId).
+			Msg("Account admin tried to demote the superuser! Refusing attempt")
+		other.HttpErr(
+			w,
+			ErrIdNotApproved,
+			"How dare try to demote superuser!",
+			http.StatusForbidden,
+		)
 		return
 	}
 	acc.CanApprovePlugins = false
@@ -337,10 +368,7 @@ func DemotePluginAdminHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func DemoteAccountAdminHandler(w http.ResponseWriter, r *http.Request) {
-	log := LogFromRequestContext(w, r)
-	if log == nil {
-		return
-	}
+	log := hlog.FromRequest(r)
 	store := StorageFromRequest(w, r)
 	if store == nil {
 		return
@@ -351,28 +379,43 @@ func DemoteAccountAdminHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	rawData, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(
-			w,
-			http.StatusText(http.StatusBadRequest),
-			http.StatusBadRequest,
-		)
+		other.HttpErr(w, ErrIdBadRequest, "bad request body", http.StatusBadRequest)
 		return
 	}
 	data := VerifyThing{}
 	err = json.Unmarshal(rawData, &data)
 	if err != nil {
-		http.Error(w, "body not json data", http.StatusBadRequest)
+		other.HttpErr(w, ErrIdBadRequest, "invalid json data", http.StatusBadRequest)
 		return
 	}
 	acc, err := store.FindAccountByID(data.Id)
-	if err != nil {
-		log.WithError(err).Warningln("Failed to get account to promote to plugin admin")
-		http.Error(w, "problem finding account", http.StatusBadRequest)
+	switch err {
+	case nil:
+	case storage.ErrAccountNotFound:
+		other.HttpErr(w, ErrIdDataNotFound, "target to demote not found", http.StatusNotFound)
+		return
+	default:
+		log.Error().
+			Err(err).
+			Uint("target-id", data.Id).
+			Msg("DB failure while getting account to demote")
+		other.HttpErr(
+			w,
+			ErrIdDbErr,
+			"db failure while getting account to demote",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 	if acc.ID == 1 {
-		log.WithField("actor", *actorId).
-			Warningln("Account admin tried to demote the superuser! Refusing attempt")
+		log.Warn().Uint("actor", *actorId).
+			Msg("Account admin tried to demote the superuser! Refusing attempt")
+		other.HttpErr(
+			w,
+			ErrIdNotApproved,
+			"How dare trying to demote the superuser",
+			http.StatusForbidden,
+		)
 		return
 	}
 	acc.CanApproveUsers = false
@@ -380,10 +423,7 @@ func DemoteAccountAdminHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func InspectAccountAdminHandler(w http.ResponseWriter, r *http.Request) {
-	log := LogFromRequestContext(w, r)
-	if log == nil {
-		return
-	}
+	log := hlog.FromRequest(r)
 	store := StorageFromRequest(w, r)
 	if store == nil {
 		return
@@ -395,13 +435,23 @@ func InspectAccountAdminHandler(w http.ResponseWriter, r *http.Request) {
 	idString := r.PathValue("id")
 	id, err := strconv.ParseUint(idString, 0, 0)
 	if err != nil {
-		http.Error(w, "id must be an uint id", http.StatusInternalServerError)
+		other.HttpErr(w, ErrIdBadRequest, "id must be uint number", http.StatusBadRequest)
 		return
 	}
 	acc, err := store.FindAccountByID(uint(id))
-	if err != nil {
-		log.WithError(err).Warningln("Failed to get account to promote to plugin admin")
-		http.Error(w, "problem finding account", http.StatusBadRequest)
+	switch err {
+	case nil:
+	case storage.ErrAccountNotFound:
+		other.HttpErr(w, ErrIdDataNotFound, "Target account doesn't exist", http.StatusBadRequest)
+		return
+	default:
+		log.Error().Err(err).Uint64("target-id", id).Msg("Db failure searching for account")
+		other.HttpErr(
+			w,
+			ErrIdDbErr,
+			"db failure searching for account",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 	retStruct := AccountData{
@@ -416,10 +466,10 @@ func InspectAccountAdminHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	retData, err := json.Marshal(&retStruct)
 	if err != nil {
-		log.WithError(err).
-			WithField("target-account", id).
-			Warningln("Failed to marshal return json!")
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		log.Error().Err(err).
+			Uint64("target-account", id).
+			Msg("Failed to marshal return json!")
+		other.HttpErr(w, ErrIdJsonMarshal, "Failed to marshal json", http.StatusInternalServerError)
 		return
 	}
 	fmt.Fprint(w, string(retData))

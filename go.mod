@@ -11,8 +11,8 @@ require (
 	github.com/mstarongithub/passkey v0.0.0-20240817142622-de6912c8303e
 	github.com/pquerna/otp v1.4.0
 	github.com/rs/cors v1.11.0
-	gitlab.com/mstarongitlab/goutils v1.2.0
-	gitlab.com/mstarongitlab/weblogger v1.2.0
+	github.com/rs/zerolog v1.33.0
+	gitlab.com/mstarongitlab/goutils v1.4.0
 	gorm.io/driver/sqlite v1.5.5
 	gorm.io/gorm v1.25.9
 )
@@ -27,7 +27,7 @@ require (
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/rs/zerolog v1.33.0 // indirect
+	github.com/rs/xid v1.5.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/stretchr/testify v1.9.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
