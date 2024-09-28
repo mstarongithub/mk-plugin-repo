@@ -55,9 +55,6 @@ const (
 // Create a new authentication manager
 // Requires a reference to a storage implementation
 func NewAuth(store *storage.Storage, mode AuthProviderMode) (*Auth, error) {
-	if config.GlobalConfig == nil {
-		panic("Global config is nil!")
-	}
 	webAuthConf := webauthn.Config{}
 	webAuthConf.RPDisplayName = config.GlobalConfig.WebAuth.DisplayName
 

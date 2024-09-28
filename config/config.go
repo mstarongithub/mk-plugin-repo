@@ -12,8 +12,6 @@ const DEFAULT_CONFIG_FILE_NAME = "config.toml"
 
 var ErrNoConfig = fmt.Errorf("no config set")
 
-var GlobalConfig *Config
-
 type ConfigGeneral struct {
 	// The protocol which is used to access the server publicly
 	Protocol string
@@ -61,7 +59,7 @@ type Config struct {
 	Superuser ConfigSuperuser `toml:"superuser"`
 }
 
-var defaultConfigData = Config{
+var defaultConfig = Config{
 	General: ConfigGeneral{
 		Protocol:      "http",
 		TopDomain:     "localhost",
@@ -83,6 +81,8 @@ var defaultConfigData = Config{
 	},
 }
 
+var GlobalConfig Config
+
 func ReadConfig(fileName *string) (Config, error) {
 	if fileName == nil {
 		return ReadFromFileName(DEFAULT_CONFIG_FILE_NAME, true)
@@ -101,13 +101,13 @@ func ReadFromFileName(fileName string, writeToGlobal bool) (config Config, err e
 		return config, fmt.Errorf("failed to parse file %s as toml config: %w", fileName, err)
 	}
 	if writeToGlobal {
-		GlobalConfig = &config
+		GlobalConfig = config
 	}
 	return config, nil
 }
 
 func SetGlobalToDefault() {
-	GlobalConfig = &defaultConfigData
+	GlobalConfig = defaultConfig
 }
 
 func WriteDefaultConfigToDefaultLocation() {
@@ -117,7 +117,7 @@ func WriteDefaultConfigToDefaultLocation() {
 		log.Error().Err(err).Msg("Can't create default config file! Exiting")
 		os.Exit(1)
 	}
-	err = toml.NewEncoder(f).Encode(&defaultConfigData)
+	err = toml.NewEncoder(f).Encode(&defaultConfig)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to write default config to default file! Exiting")
 		os.Exit(1)

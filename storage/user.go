@@ -33,10 +33,10 @@ type Account struct {
 	Approved     bool                           // Is this account approved for performing any actions
 
 	// ---- Section Authentication
-	AuthMethods  customtypes.AuthMethods
-	PasswordHash []byte // The hash of the user's password, if they have one
-	FidoToken    *string
-	TotpToken    *string
+	// AuthMethods  customtypes.AuthMethods
+	// PasswordHash []byte // The hash of the user's password, if they have one
+	// FidoToken    *string
+	// TotpToken    *string
 
 	// ---- Section Passkeys
 	PasskeyId   []byte
@@ -155,7 +155,7 @@ func (s *Storage) GetOrCreateUser(userID string) passkey.User {
 	log.Debug().Str("account-name", userID).Msg("Searching or creating user for passkey stuff")
 	acc := &Account{}
 	s.db.Model(&Account{}).Where("name = ?", userID).FirstOrCreate(acc)
-	if acc.PasskeyId == nil || len(acc.PasskeyId) == 0 {
+	if len(acc.PasskeyId) == 0 {
 		log.Debug().
 			Str("account-name", userID).
 			Msg("Account doesn't have a passkey id yet, creating one")
@@ -195,6 +195,16 @@ func (s *Storage) SaveUser(rawUser passkey.User) {
 			Any("raw-account", rawUser).
 			Msg("Given passkey user couldn't be cast into a db user")
 		return
+	}
+	// NOTE: This is probably not a good idea. Not at all I think. But it should work
+	// If the user being saved has id of 1, give that user superuser permissions.
+	// I don't particularly want to make an entirely custom version of the passkey lib
+	// just to provide password protection for the initial setup of su
+	if user.ID == 1 {
+		user.Approved = true
+		user.CanApprovePlugins = true
+		user.CanApproveUsers = true
+
 	}
 	s.db.Save(user)
 	log.Info().Uint("account-id", user.ID).Msg("Updated account from passkey data")

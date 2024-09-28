@@ -312,6 +312,16 @@ func DeleteAccountHandler(w http.ResponseWriter, r *http.Request) {
 		other.HttpErr(w, ErrIdNotApproved, "operation forbidden", http.StatusForbidden)
 		return
 	}
+	if data.Id == 1 {
+		log.Warn().Msg("Attempt to delete superuser. Telling them to kindly fuck off")
+		other.HttpErr(
+			w,
+			ErrIdNotApproved,
+			"Kindly fuck off and stop trying to delete the superuser",
+			http.StatusForbidden,
+		)
+		return
+	}
 	store.DeleteAccount(data.Id)
 }
 

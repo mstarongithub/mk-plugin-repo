@@ -10,7 +10,6 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
-	"github.com/mstarongithub/mk-plugin-repo/config"
 	"github.com/mstarongithub/mk-plugin-repo/storage"
 	customtypes "github.com/mstarongithub/mk-plugin-repo/storage/customTypes"
 	"github.com/mstarongithub/mk-plugin-repo/util"

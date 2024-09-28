@@ -4,8 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/rs/zerolog"
-
 	"github.com/mstarongithub/mk-plugin-repo/storage"
 	customtypes "github.com/mstarongithub/mk-plugin-repo/storage/customTypes"
 )
@@ -42,15 +40,6 @@ func ServerFromRequest(w http.ResponseWriter, r *http.Request) *Server {
 // 	}
 // 	return a
 // }
-
-func LogFromRequestContext(w http.ResponseWriter, r *http.Request) *zerolog.Logger {
-	a, ok := r.Context().Value(CONTEXT_KEY_LOG).(*zerolog.Logger)
-	if !ok {
-		http.Error(w, "no logger in request context", http.StatusInternalServerError)
-		return nil
-	}
-	return a
-}
 
 func AccIdFromRequestContext(w http.ResponseWriter, r *http.Request) *uint {
 	a, ok := r.Context().Value(CONTEXT_KEY_ACTOR_ID).(uint)

@@ -12,14 +12,16 @@ type Token struct {
 	gorm.Model
 	Token     string
 	UserID    uint
+	Name      string
 	ExpiresAt time.Time
 }
 
-func (storage *Storage) NewToken(ID uint, ExpiresAt time.Time) (string, error) {
+func (storage *Storage) NewToken(ID uint, name string, ExpiresAt time.Time) (string, error) {
 	tokenString := uuid.NewString()
 	token := Token{
 		Token:     tokenString,
 		UserID:    ID,
+		Name:      name,
 		ExpiresAt: ExpiresAt,
 	}
 
@@ -54,11 +56,20 @@ func (storage *Storage) GetTokensForAccountID(id uint) ([]Token, error) {
 	return tokens, nil
 }
 
-func (storage *Storage) FindToken(tokenString string) (*Token, error) {
+func (storage *Storage) FindTokenByToken(tokenString string) (*Token, error) {
 	token := Token{}
 	res := storage.db.Where("token = ?", tokenString).First(&token)
 	if res.Error != nil {
-		return nil, fmt.Errorf("couldn'T find token: %w", res.Error)
+		return nil, fmt.Errorf("couldn't find token: %w", res.Error)
+	}
+	return &token, nil
+}
+
+func (storage *Storage) FindTokenByName(accId uint, name string) (*Token, error) {
+	token := Token{}
+	res := storage.db.Where("name = ?", name).Where("user_id = ?", accId).First(&token)
+	if res.Error != nil {
+		return nil, fmt.Errorf("couldn't find token: %w", res.Error)
 	}
 	return &token, nil
 }
