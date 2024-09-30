@@ -134,6 +134,11 @@ func buildV1RestrictedRouter(pkey *passkey.Passkey) http.Handler {
 	router.HandleFunc("POST /plugins/{pluginId}", newVersion)
 	router.HandleFunc("DELETE /plugins/{pluginId}", deleteSpecificPlugin)
 	router.HandleFunc("DELETE /plugins/{pluginId}/{versionName}", hideVersion)
+	router.HandleFunc("GET /tokens", GetAllTokens)
+	router.HandleFunc("PUT /tokens", GenerateNewToken)
+	router.HandleFunc("POST /tokens", ExtendToken)
+	router.HandleFunc("DELETE /tokens/{name}", InvalidateToken)
+
 	router.Handle(
 		"/admin/users/",
 		http.StripPrefix("/admin/users", buildV1AccountAdminRouter()),

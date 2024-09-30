@@ -171,15 +171,15 @@ func ExtendToken(w http.ResponseWriter, r *http.Request) {
 			http.StatusInternalServerError,
 		)
 	}
-	log.Info().Uint("token-id", token.ID).Time("new-expiry", data.ExtendTo).Msg("Extending token lifetime")
+	log.Info().
+		Uint("token-id", token.ID).
+		Time("new-expiry", data.ExtendTo).
+		Msg("Extending token lifetime")
 	token.ExpiresAt = data.ExtendTo
 	store.ExtendToken(token)
 }
 
 func InvalidateToken(w http.ResponseWriter, r *http.Request) {
-	type InData struct {
-		Name string
-	}
 	store := StorageFromRequest(w, r)
 	if store == nil {
 		return
@@ -190,13 +190,11 @@ func InvalidateToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, _ := io.ReadAll(r.Body)
-	data := InData{}
-	err := json.Unmarshal(body, &data)
-	if err != nil {
-		other.HttpErr(w, ErrIdJsonMarshal, "invalid body content", http.StatusBadRequest)
+	name := r.PathValue("name")
+	if name == "" {
+		other.HttpErr(w, ErrIdBadRequest, "name path value must be set", ErrIdBadRequest)
 		return
 	}
-	log.Info().Str("token-name", data.Name).Uint("account-id", *accId).Msg("Invalidating token")
-	store.InvalidateTokenByName(data.Name, *accId)
+	log.Info().Str("token-name", name).Uint("account-id", *accId).Msg("Invalidating token")
+	store.InvalidateTokenByName(name, *accId)
 }
