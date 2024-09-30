@@ -59,22 +59,32 @@ func (storage *Storage) GetTokensForAccountID(id uint) ([]Token, error) {
 func (storage *Storage) FindTokenByToken(tokenString string) (*Token, error) {
 	token := Token{}
 	res := storage.db.Where("token = ?", tokenString).First(&token)
-	if res.Error != nil {
-		return nil, fmt.Errorf("couldn't find token: %w", res.Error)
+	switch res.Error {
+	case nil:
+		return &token, nil
+	case gorm.ErrRecordNotFound:
+		return nil, ErrDataNotFound
+	default:
+		return nil, res.Error
 	}
-	return &token, nil
 }
 
 func (storage *Storage) FindTokenByName(accId uint, name string) (*Token, error) {
 	token := Token{}
 	res := storage.db.Where("name = ?", name).Where("user_id = ?", accId).First(&token)
-	if res.Error != nil {
-		return nil, fmt.Errorf("couldn't find token: %w", res.Error)
+	switch res.Error {
+	case nil:
+		return &token, nil
+	case gorm.ErrRecordNotFound:
+		return nil, ErrDataNotFound
+	default:
+		return nil, res.Error
 	}
-	return &token, nil
 }
 
 func (storage *Storage) ExtendToken(token *Token) error {
-	res := storage.db.Where("id = ?", token.ID).Update("expires_at", token.ExpiresAt)
+	res := storage.db.Model(&Token{}).
+		Where("id = ?", token.ID).
+		Update("expires_at", token.ExpiresAt)
 	return res.Error
 }

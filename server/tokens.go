@@ -7,12 +7,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/mstarongithub/mk-plugin-repo/storage"
 	"github.com/rs/zerolog/hlog"
 	"gitlab.com/mstarongitlab/goutils/other"
 )
 
 type returnTokenData struct {
-	Tokens map[string]string
+  Tokens map[string]string
 }
 
 type newTokenData struct {
@@ -140,4 +141,36 @@ func ExtendToken(w http.ResponseWriter, r *http.Request) {
 		other.HttpErr(w, ErrIdBadRequest, "bad json data", http.StatusBadRequest)
 		return
 	}
+	if data.ExtendTo.Before(time.Now()) {
+		other.HttpErr(
+			w,
+			ErrIdCantExtendIntoPast,
+			"can't extend a token into the past",
+			http.StatusBadRequest,
+		)
+		return
+	}
+	token, err := store.FindTokenByName(*accId, data.TokenName)
+	switch err {
+	case nil:
+	case storage.ErrDataNotFound:
+		other.HttpErr(w, ErrIdDataNotFound, "token doesn't exist", http.StatusNotFound)
+		return
+	default:
+		log.Error().
+			Err(err).
+			Uint("account-id", *accId).
+			Str("token-name", data.TokenName).
+			Msg("Db failure while getting token for update")
+		other.HttpErr(
+			w,
+			ErrIdDbErr,
+			"db failure while getting token to update",
+			http.StatusInternalServerError,
+		)
+	}
+	token.ExpiresAt = data.ExtendTo
+	store.ExtendToken(token)
 }
+
+func 

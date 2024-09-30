@@ -6,4 +6,5 @@ const (
 	ErrIdDataNotFound
 	ErrIdJsonMarshal
 	ErrIdNotApproved
+	ErrIdCantExtendIntoPast
 )
