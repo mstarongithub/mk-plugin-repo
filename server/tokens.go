@@ -12,20 +12,14 @@ import (
 	"gitlab.com/mstarongitlab/goutils/other"
 )
 
-type returnTokenData struct {
-  Tokens map[string]string
-}
-
-type newTokenData struct {
-	Token string
-}
-
-type extendTokenData struct {
-	ExtendTo  time.Time
-	TokenName string
-}
-
 func GetAllTokens(w http.ResponseWriter, r *http.Request) {
+	type Token struct {
+		Name  string `json:"name"`
+		Token string `json:"token"`
+	}
+	type ReturnData struct {
+		Tokens []Token `json:"tokens"`
+	}
 	store := StorageFromRequest(w, r)
 	if store == nil {
 		return
@@ -51,9 +45,9 @@ func GetAllTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	returnTokens := returnTokenData{map[string]string{}}
+	returnTokens := ReturnData{[]Token{}}
 	for _, token := range tokens {
-		returnTokens.Tokens[token.Name] = token.Token
+		returnTokens.Tokens = append(returnTokens.Tokens, Token{token.Name, token.Token})
 	}
 
 	outBytes, err := json.Marshal(&returnTokens)
@@ -71,6 +65,15 @@ func GetAllTokens(w http.ResponseWriter, r *http.Request) {
 }
 
 func GenerateNewToken(w http.ResponseWriter, r *http.Request) {
+	type InData struct {
+		Name           string    `json:"name"`
+		ExpirationDate time.Time `json:"expiration_date"`
+	}
+	type ReturnData struct {
+		Name           string    `json:"name"`
+		Token          string    `json:"token"`
+		ExpirationDate time.Time `json:"expiration_date"`
+	}
 	store := StorageFromRequest(w, r)
 	if store == nil {
 		return
@@ -80,23 +83,19 @@ func GenerateNewToken(w http.ResponseWriter, r *http.Request) {
 	if accId == nil {
 		return
 	}
-	err := r.ParseForm()
+	body, _ := io.ReadAll(r.Body)
+	inData := InData{}
+	err := json.Unmarshal(body, &inData)
 	if err != nil {
-		log.Warn().Err(err).Msg("Failed to parse form data")
-		other.HttpErr(w, ErrIdBadRequest, "bad form data", http.StatusBadRequest)
+		other.HttpErr(w, ErrIdBadRequest, "invalid body data", http.StatusBadRequest)
 		return
 	}
-	tokenName := r.FormValue("name")
-	if tokenName == "" {
-		other.HttpErr(
-			w,
-			ErrIdBadRequest,
-			"no token name (form name \"name\") provided",
-			http.StatusBadRequest,
-		)
+	if inData.Name == "" || inData.ExpirationDate.Before(time.Now().Add(time.Minute)) {
+		other.HttpErr(w, ErrIdBadRequest, "invalid name or expiration date", http.StatusBadRequest)
 		return
 	}
-	tokenToken, err := store.NewToken(*accId, tokenName, time.Now().Add(time.Hour*24*30*12))
+
+	tokenToken, err := store.NewToken(*accId, inData.Name, inData.ExpirationDate)
 	if err != nil {
 		log.Error().Err(err).Msg("DB failure while creating new token")
 		other.HttpErr(
@@ -107,7 +106,7 @@ func GenerateNewToken(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	token := newTokenData{tokenToken}
+	token := ReturnData{Name: inData.Name, ExpirationDate: inData.ExpirationDate, Token: tokenToken}
 	data, err := json.Marshal(&token)
 	if err != nil {
 		log.Warn().Err(err).Msg("Failed to parse return json for new token")
@@ -123,6 +122,10 @@ func GenerateNewToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func ExtendToken(w http.ResponseWriter, r *http.Request) {
+	type InData struct {
+		Name     string    `json:"name"`
+		ExtendTo time.Time `json:"extend_to"`
+	}
 	store := StorageFromRequest(w, r)
 	if store == nil {
 		return
@@ -132,10 +135,9 @@ func ExtendToken(w http.ResponseWriter, r *http.Request) {
 	if accId == nil {
 		return
 	}
-	_ = log
 
 	body, _ := io.ReadAll(r.Body)
-	data := extendTokenData{}
+	data := InData{}
 	err := json.Unmarshal(body, &data)
 	if err != nil {
 		other.HttpErr(w, ErrIdBadRequest, "bad json data", http.StatusBadRequest)
@@ -150,7 +152,7 @@ func ExtendToken(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	token, err := store.FindTokenByName(*accId, data.TokenName)
+	token, err := store.FindTokenByName(*accId, data.Name)
 	switch err {
 	case nil:
 	case storage.ErrDataNotFound:
@@ -160,7 +162,7 @@ func ExtendToken(w http.ResponseWriter, r *http.Request) {
 		log.Error().
 			Err(err).
 			Uint("account-id", *accId).
-			Str("token-name", data.TokenName).
+			Str("token-name", data.Name).
 			Msg("Db failure while getting token for update")
 		other.HttpErr(
 			w,
@@ -169,8 +171,32 @@ func ExtendToken(w http.ResponseWriter, r *http.Request) {
 			http.StatusInternalServerError,
 		)
 	}
+	log.Info().Uint("token-id", token.ID).Time("new-expiry", data.ExtendTo).Msg("Extending token lifetime")
 	token.ExpiresAt = data.ExtendTo
 	store.ExtendToken(token)
 }
 
-func 
+func InvalidateToken(w http.ResponseWriter, r *http.Request) {
+	type InData struct {
+		Name string
+	}
+	store := StorageFromRequest(w, r)
+	if store == nil {
+		return
+	}
+	log := hlog.FromRequest(r)
+	accId := AccIdFromRequestContext(w, r)
+	if accId == nil {
+		return
+	}
+
+	body, _ := io.ReadAll(r.Body)
+	data := InData{}
+	err := json.Unmarshal(body, &data)
+	if err != nil {
+		other.HttpErr(w, ErrIdJsonMarshal, "invalid body content", http.StatusBadRequest)
+		return
+	}
+	log.Info().Str("token-name", data.Name).Uint("account-id", *accId).Msg("Invalidating token")
+	store.InvalidateTokenByName(data.Name, *accId)
+}

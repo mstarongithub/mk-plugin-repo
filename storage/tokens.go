@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -87,4 +86,8 @@ func (storage *Storage) ExtendToken(token *Token) error {
 		Where("id = ?", token.ID).
 		Update("expires_at", token.ExpiresAt)
 	return res.Error
+}
+
+func (storage *Storage) InvalidateTokenByName(name string, ownerId uint) {
+	storage.db.Model(&Token{}).Where(&Token{Name: name}).Where(&Token{UserID: ownerId}).Delete(&Token{})
 }
