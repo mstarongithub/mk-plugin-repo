@@ -7,4 +7,5 @@ const (
 	ErrIdJsonMarshal
 	ErrIdNotApproved
 	ErrIdCantExtendIntoPast
+	ErrIdAlreadyExists
 )

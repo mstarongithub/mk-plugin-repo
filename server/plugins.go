@@ -9,6 +9,8 @@ import (
 	"strconv"
 
 	"github.com/rs/zerolog/hlog"
+	"github.com/rs/zerolog/log"
+	"gitlab.com/mstarongitlab/goutils/other"
 	"gitlab.com/mstarongitlab/goutils/sliceutils"
 
 	"github.com/mstarongithub/mk-plugin-repo/storage"
@@ -88,7 +90,12 @@ func getPluginList(w http.ResponseWriter, r *http.Request) {
 		log.Error().Err(err).
 			Uints("plugins", sliceutils.Map(dbPlugins, func(t storage.Plugin) uint { return t.ID })).
 			Msg("Failed to convert plugins to json")
-		http.Error(w, "json conversion failed", http.StatusInternalServerError)
+		other.HttpErr(
+			w,
+			ErrIdJsonMarshal,
+			"Failed to marshal response",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 	fmt.Fprint(w, string(data))
@@ -118,11 +125,7 @@ func addNewPlugin(w http.ResponseWriter, r *http.Request) {
 		log.Error().Err(err).
 			Bytes("body", body).
 			Msg("Failed to parse json from body")
-		http.Error(
-			w,
-			"body must be a json-encoded representation of NewPluginData",
-			http.StatusBadRequest,
-		)
+		other.HttpErr(w, ErrIdBadRequest, "Body must be valid json data", http.StatusBadRequest)
 		return
 	}
 	// And now parse the plugin type
@@ -151,9 +154,10 @@ func addNewPlugin(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		log.Error().Err(err).Any("plugin", newPlugin).Msg("Failed to add plugin to db")
-		http.Error(
+		other.HttpErr(
 			w,
-			fmt.Sprintf("failed to insert new plugin. Error: %s", err.Error()),
+			ErrIdDbErr,
+			"Failed to insert new plugin into db",
 			http.StatusInternalServerError,
 		)
 	}
@@ -173,18 +177,14 @@ func getSpecificPlugin(w http.ResponseWriter, r *http.Request) {
 	if pluginID == "" {
 		// TODO: Add stat collection
 		// Not necessary to log this case
-		http.Error(
-			w,
-			"missing plugin id. Endpoint usage: GET /api/v1/plugins/{plugin-id}",
-			http.StatusBadRequest,
-		)
+		other.HttpErr(w, ErrIdBadRequest, "Missing path parameter plugin-id", ErrIdBadRequest)
 		return
 	}
 	pID, err := strconv.ParseUint(pluginID, 10, 0)
 	if err != nil {
 		// TODO: Add stat collection
 		// Not necessary to log this case
-		http.Error(w, "bad plugin ID", http.StatusBadRequest)
+		other.HttpErr(w, ErrIdBadRequest, "Plugin ID must be a uint", http.StatusBadRequest)
 		return
 	}
 	log.Info().Uint64("plugin-id", pID).Msg("Requested public plugin data")
@@ -194,10 +194,10 @@ func getSpecificPlugin(w http.ResponseWriter, r *http.Request) {
 		// TODO: Add stat collection
 		if errors.Is(err, storage.ErrPluginNotFound) {
 			// Not necessary to log this case
-			http.Error(w, "plugin not found", http.StatusNotFound)
+			other.HttpErr(w, ErrIdDataNotFound, "Plugin not found", http.StatusNotFound)
 		} else {
-			log.Warn().Err(err).Uint64("plugin-id", pID).Msg("Failed to get plugin from storage layer")
-			http.Error(w, "error getting plugin from storage layer", http.StatusInternalServerError)
+			log.Error().Err(err).Uint64("plugin-id", pID).Msg("Failed to get plugin from storage layer")
+			other.HttpErr(w, ErrIdDbErr, "Failed to get plugin from db", http.StatusInternalServerError)
 		}
 		return
 	}
@@ -205,10 +205,15 @@ func getSpecificPlugin(w http.ResponseWriter, r *http.Request) {
 	jbody, err := json.Marshal(&apiPlugin)
 	if err != nil {
 		log.Warn().Err(err).Uint64("plugin-id", pID).Msg("Failed to encode result to json")
-		http.Error(w, "json encoding failed", http.StatusInternalServerError)
+		other.HttpErr(
+			w,
+			ErrIdJsonMarshal,
+			"Failed to marshal response data",
+			http.StatusInternalServerError,
+		)
 		return
 	}
-	w.Write(jbody)
+	fmt.Fprint(w, string(jbody))
 }
 
 // PUT /api/v1/plugins/{pluginId}
@@ -230,7 +235,7 @@ func updateSpecificPlugin(w http.ResponseWriter, r *http.Request) {
 	pluginString := r.PathValue("pluginId")
 	pluginID, err := strconv.ParseUint(pluginString, 10, 0)
 	if err != nil {
-		http.Error(w, "bad plugin id. Must be a uint", http.StatusBadRequest)
+		other.HttpErr(w, ErrIdBadRequest, "Plugin id must be a uint", http.StatusBadRequest)
 		return
 	}
 
@@ -239,16 +244,26 @@ func updateSpecificPlugin(w http.ResponseWriter, r *http.Request) {
 	plugin, err := store.GetPluginByID(uint(pluginID))
 	if err != nil {
 		if errors.Is(err, storage.ErrPluginNotFound) {
-			http.Error(w, "plugin not found", http.StatusNotFound)
+			other.HttpErr(w, ErrIdDataNotFound, "Plugin not found", http.StatusNotFound)
 		} else {
-			log.Warn().Err(err).Uint64("plugin-id", pluginID).Msg("Failed to get plugin from storage layer")
-			http.Error(w, "problem getting plugin from storage layer", http.StatusInternalServerError)
+			log.Error().Err(err).Uint64("plugin-id", pluginID).Msg("Failed to get plugin from storage layer")
+			other.HttpErr(w, ErrIdDbErr, "Failed to get plugin from db", http.StatusInternalServerError)
 		}
 		return
 	}
+	actor, err := store.FindAccountByID(*accId)
+	if err != nil {
+		log.Error().Err(err).Uint("actor-id", *accId).Msg("Failed to get actor")
+		other.HttpErr(w, ErrIdDbErr, "Failed to get actor from db", http.StatusInternalServerError)
+	}
 	// Check if the user authenticated is actually allowed to edit this plugin (aka is the owner)
-	if plugin.AuthorID != *accId {
-		http.Error(w, "you're not the owner of the plugin", http.StatusUnauthorized)
+	if plugin.AuthorID != *accId && !actor.CanApprovePlugins {
+		other.HttpErr(
+			w,
+			ErrIdNotApproved,
+			"You're not the owner of the plugin",
+			http.StatusUnauthorized,
+		)
 		return
 	}
 
@@ -256,7 +271,12 @@ func updateSpecificPlugin(w http.ResponseWriter, r *http.Request) {
 	updateData := UpdatePluginData{}
 	err = json.Unmarshal(body, &updateData)
 	if err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		other.HttpErr(
+			w,
+			ErrIdJsonMarshal,
+			"Failed to marshal response data",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
@@ -281,7 +301,16 @@ func updateSpecificPlugin(w http.ResponseWriter, r *http.Request) {
 		plugin.SummaryLong = *updateData.SummaryLong
 	}
 
-	_ = store.UpdatePlugin(plugin)
+	err = store.UpdatePlugin(plugin)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to update plugin in db")
+		other.HttpErr(
+			w,
+			ErrIdDbErr,
+			"Failed to update plugin in db",
+			http.StatusInternalServerError,
+		)
+	}
 }
 
 // DELETE /api/v1/plugins/{pluginId}
@@ -303,13 +332,19 @@ func deleteSpecificPlugin(w http.ResponseWriter, r *http.Request) {
 	pluginID, err := strconv.ParseUint(pluginString, 10, 0)
 	if err != nil {
 		http.Error(w, "bad plugin id. Must be a uint", http.StatusBadRequest)
+		other.HttpErr(w, ErrIdBadRequest, "Plugin ID must be a uint", ErrIdBadRequest)
 		return
 	}
 
 	// TODO: Add logging: About to attempt plugin deletion with plugin and user id
 	err = store.DeletePlugin(uint(pluginID), *accId)
 	if err != nil {
-		// TODO: Add logging
-		http.Error(w, "couldn't delete plugin", http.StatusInternalServerError)
+		log.Error().Err(err).Msg("Failed to delete plugin in db")
+		other.HttpErr(
+			w,
+			ErrIdDbErr,
+			"Failed to delete plugin in db",
+			http.StatusInternalServerError,
+		)
 	}
 }

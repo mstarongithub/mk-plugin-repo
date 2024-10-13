@@ -17,7 +17,7 @@ func GetAllTokens(w http.ResponseWriter, r *http.Request) {
 		Name  string `json:"name"`
 		Token string `json:"token"`
 	}
-	type ReturnData struct {
+	type OutData struct {
 		Tokens []Token `json:"tokens"`
 	}
 	store := StorageFromRequest(w, r)
@@ -45,7 +45,7 @@ func GetAllTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	returnTokens := ReturnData{[]Token{}}
+	returnTokens := OutData{[]Token{}}
 	for _, token := range tokens {
 		returnTokens.Tokens = append(returnTokens.Tokens, Token{token.Name, token.Token})
 	}
@@ -69,7 +69,7 @@ func GenerateNewToken(w http.ResponseWriter, r *http.Request) {
 		Name           string    `json:"name"`
 		ExpirationDate time.Time `json:"expiration_date"`
 	}
-	type ReturnData struct {
+	type OutData struct {
 		Name           string    `json:"name"`
 		Token          string    `json:"token"`
 		ExpirationDate time.Time `json:"expiration_date"`
@@ -106,7 +106,7 @@ func GenerateNewToken(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	token := ReturnData{Name: inData.Name, ExpirationDate: inData.ExpirationDate, Token: tokenToken}
+	token := OutData{Name: inData.Name, ExpirationDate: inData.ExpirationDate, Token: tokenToken}
 	data, err := json.Marshal(&token)
 	if err != nil {
 		log.Warn().Err(err).Msg("Failed to parse return json for new token")

@@ -14,26 +14,10 @@ import (
 	"github.com/mstarongithub/mk-plugin-repo/storage"
 )
 
-type VerifyThing struct {
-	Id uint `json:"id"`
-}
-
-type IdList struct {
-	Ids []uint `json:"ids"`
-}
-
-type AccountData struct {
-	Name         string   `json:"name"`
-	Mail         *string  `json:"mail"`
-	Description  string   `json:"description"`
-	Approved     bool     `json:"approved"`
-	UserAdmin    bool     `json:"user_admin"`
-	PluginAdmin  bool     `json:"plugin_admin"`
-	PluginsOwned []uint   `json:"plugins_owned"`
-	Links        []string `json:"links"`
-}
-
 func VerifyUserHandler(w http.ResponseWriter, r *http.Request) {
+	type InData struct {
+		Id uint `json:"id"`
+	}
 	log := hlog.FromRequest(r)
 	store := StorageFromRequest(w, r)
 	if store == nil {
@@ -44,7 +28,7 @@ func VerifyUserHandler(w http.ResponseWriter, r *http.Request) {
 		other.HttpErr(w, ErrIdBadRequest, "invalid request body", http.StatusBadRequest)
 		return
 	}
-	data := VerifyThing{}
+	data := InData{}
 	err = json.Unmarshal(rawData, &data)
 	if err != nil {
 		other.HttpErr(w, ErrIdBadRequest, "body not json data", http.StatusBadRequest)
@@ -55,6 +39,7 @@ func VerifyUserHandler(w http.ResponseWriter, r *http.Request) {
 	case nil:
 	case storage.ErrAccountNotFound:
 		other.HttpErr(w, ErrIdDataNotFound, "account not found", http.StatusNotFound)
+		return
 	default:
 		other.HttpErr(
 			w,
@@ -78,6 +63,9 @@ func VerifyUserHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func VerifyNewPluginHandler(w http.ResponseWriter, r *http.Request) {
+	type InData struct {
+		Id uint `json:"id"`
+	}
 	log := hlog.FromRequest(r)
 	store := StorageFromRequest(w, r)
 	if store == nil {
@@ -88,7 +76,7 @@ func VerifyNewPluginHandler(w http.ResponseWriter, r *http.Request) {
 		other.HttpErr(w, ErrIdBadRequest, "invalid request body", http.StatusBadRequest)
 		return
 	}
-	data := VerifyThing{}
+	data := InData{}
 	err = json.Unmarshal(rawData, &data)
 	if err != nil {
 		other.HttpErr(w, ErrIdBadRequest, "body not json data", http.StatusBadRequest)
@@ -118,6 +106,9 @@ func VerifyNewPluginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetAllUnverifiedPluginshandler(w http.ResponseWriter, r *http.Request) {
+	type OutData struct {
+		Plugins []uint `json:"plugins"`
+	}
 	store := StorageFromRequest(w, r)
 	if store == nil {
 		return
@@ -137,7 +128,7 @@ func GetAllUnverifiedPluginshandler(w http.ResponseWriter, r *http.Request) {
 	ids := sliceutils.Map(plugins, func(p storage.Plugin) uint {
 		return p.ID
 	})
-	data, err := json.Marshal(&ids)
+	data, err := json.Marshal(&OutData{ids})
 	if err != nil {
 		log.Warn().Err(err).Uints("ids", ids).Msg("Failed to marshal ids to json")
 		other.HttpErr(w, ErrIdJsonMarshal, "json marshal fail", http.StatusInternalServerError)
@@ -147,6 +138,9 @@ func GetAllUnverifiedPluginshandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetAllUnverifiedAccountsHandler(w http.ResponseWriter, r *http.Request) {
+	type OutData struct {
+		Accounts []uint `json:"accounts"`
+	}
 	store := StorageFromRequest(w, r)
 	if store == nil {
 		return
@@ -166,7 +160,7 @@ func GetAllUnverifiedAccountsHandler(w http.ResponseWriter, r *http.Request) {
 	ids := sliceutils.Map(plugins, func(p storage.Account) uint {
 		return p.ID
 	})
-	data, err := json.Marshal(&ids)
+	data, err := json.Marshal(&OutData{ids})
 	if err != nil {
 		log.Warn().Err(err).Uints("ids", ids).Msg("Failed to marshal ids to json")
 		other.HttpErr(
@@ -181,6 +175,9 @@ func GetAllUnverifiedAccountsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func PromotePluginAdminHandler(w http.ResponseWriter, r *http.Request) {
+	type InData struct {
+		Id uint `json:"id"`
+	}
 	log := hlog.FromRequest(r)
 	store := StorageFromRequest(w, r)
 	if store == nil {
@@ -191,7 +188,7 @@ func PromotePluginAdminHandler(w http.ResponseWriter, r *http.Request) {
 		other.HttpErr(w, ErrIdBadRequest, "bad request body", http.StatusBadRequest)
 		return
 	}
-	data := VerifyThing{}
+	data := InData{}
 	err = json.Unmarshal(rawData, &data)
 	if err != nil {
 		other.HttpErr(w, ErrIdBadRequest, "body not json data", http.StatusBadRequest)
@@ -218,10 +215,17 @@ func PromotePluginAdminHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	acc.CanApprovePlugins = true
-	store.UpdateAccount(acc)
+	err = store.UpdateAccount(acc)
+	if err != nil {
+		other.HttpErr(w, ErrIdDbErr, "Failed to update in db", http.StatusInternalServerError)
+		log.Error().Err(err).Any("account", acc).Msg("Failed to update account in db")
+	}
 }
 
 func PromoteAccountAdminHandler(w http.ResponseWriter, r *http.Request) {
+	type InData struct {
+		Id uint `json:"id"`
+	}
 	log := hlog.FromRequest(r)
 	store := StorageFromRequest(w, r)
 	if store == nil {
@@ -232,7 +236,7 @@ func PromoteAccountAdminHandler(w http.ResponseWriter, r *http.Request) {
 		other.HttpErr(w, ErrIdBadRequest, "bad request body", http.StatusBadRequest)
 		return
 	}
-	data := VerifyThing{}
+	data := InData{}
 	err = json.Unmarshal(rawData, &data)
 	if err != nil {
 		other.HttpErr(w, ErrIdBadRequest, "body not required json data", http.StatusBadRequest)
@@ -259,10 +263,17 @@ func PromoteAccountAdminHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	acc.CanApproveUsers = true
-	store.UpdateAccount(acc)
+	err = store.UpdateAccount(acc)
+	if err != nil {
+		other.HttpErr(w, ErrIdDbErr, "Failed to update account", http.StatusInternalServerError)
+		log.Error().Err(err).Any("account", acc).Msg("Failed to update account in db")
+	}
 }
 
 func DeleteAccountHandler(w http.ResponseWriter, r *http.Request) {
+	type InData struct {
+		Id uint `json:"id"`
+	}
 	store := StorageFromRequest(w, r)
 	if store == nil {
 		return
@@ -302,7 +313,7 @@ func DeleteAccountHandler(w http.ResponseWriter, r *http.Request) {
 		other.HttpErr(w, ErrIdBadRequest, "bad request body", http.StatusBadRequest)
 		return
 	}
-	data := VerifyThing{}
+	data := InData{}
 	err = json.Unmarshal(rawData, &data)
 	if err != nil {
 		other.HttpErr(w, ErrIdBadRequest, "body not required json data", http.StatusBadRequest)
@@ -326,6 +337,9 @@ func DeleteAccountHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func DemotePluginAdminHandler(w http.ResponseWriter, r *http.Request) {
+	type InData struct {
+		Id uint `json:"id"`
+	}
 	log := hlog.FromRequest(r)
 	store := StorageFromRequest(w, r)
 	if store == nil {
@@ -340,7 +354,7 @@ func DemotePluginAdminHandler(w http.ResponseWriter, r *http.Request) {
 		other.HttpErr(w, ErrIdBadRequest, "bad request body", http.StatusBadRequest)
 		return
 	}
-	data := VerifyThing{}
+	data := InData{}
 	err = json.Unmarshal(rawData, &data)
 	if err != nil {
 		other.HttpErr(w, ErrIdBadRequest, "body not expected json data", http.StatusBadRequest)
@@ -374,10 +388,22 @@ func DemotePluginAdminHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	acc.CanApprovePlugins = false
-	store.UpdateAccount(acc)
+	err = store.UpdateAccount(acc)
+	if err != nil {
+		other.HttpErr(
+			w,
+			ErrIdDbErr,
+			"Failed to update account in db",
+			http.StatusInternalServerError,
+		)
+		log.Error().Err(err).Any("account", acc).Msg("Failed to update account in db")
+	}
 }
 
 func DemoteAccountAdminHandler(w http.ResponseWriter, r *http.Request) {
+	type InData struct {
+		Id uint `json:"id"`
+	}
 	log := hlog.FromRequest(r)
 	store := StorageFromRequest(w, r)
 	if store == nil {
@@ -392,7 +418,7 @@ func DemoteAccountAdminHandler(w http.ResponseWriter, r *http.Request) {
 		other.HttpErr(w, ErrIdBadRequest, "bad request body", http.StatusBadRequest)
 		return
 	}
-	data := VerifyThing{}
+	data := InData{}
 	err = json.Unmarshal(rawData, &data)
 	if err != nil {
 		other.HttpErr(w, ErrIdBadRequest, "invalid json data", http.StatusBadRequest)
@@ -429,10 +455,24 @@ func DemoteAccountAdminHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	acc.CanApproveUsers = false
-	store.UpdateAccount(acc)
+	err = store.UpdateAccount(acc)
+	if err != nil {
+		other.HttpErr(w, ErrIdDbErr, "Failed to update account", http.StatusInternalServerError)
+		log.Error().Err(err).Any("account", acc).Msg("Failed to update account in db")
+	}
 }
 
 func InspectAccountAdminHandler(w http.ResponseWriter, r *http.Request) {
+	type OutData struct {
+		Name         string   `json:"name"`
+		Mail         *string  `json:"mail"`
+		Description  string   `json:"description"`
+		Approved     bool     `json:"approved"`
+		UserAdmin    bool     `json:"user_admin"`
+		PluginAdmin  bool     `json:"plugin_admin"`
+		PluginsOwned []uint   `json:"plugins_owned"`
+		Links        []string `json:"links"`
+	}
 	log := hlog.FromRequest(r)
 	store := StorageFromRequest(w, r)
 	if store == nil {
@@ -464,7 +504,7 @@ func InspectAccountAdminHandler(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	retStruct := AccountData{
+	retStruct := OutData{
 		Name:         acc.Name,
 		Description:  acc.Description,
 		Mail:         acc.Mail,
