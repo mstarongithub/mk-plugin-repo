@@ -12,7 +12,7 @@ require (
 	github.com/pquerna/otp v1.4.0
 	github.com/rs/cors v1.11.0
 	github.com/rs/zerolog v1.33.0
-	gitlab.com/mstarongitlab/goutils v1.4.0
+	gitlab.com/mstarongitlab/goutils v1.4.1
 	gorm.io/driver/sqlite v1.5.5
 	gorm.io/gorm v1.25.9
 )
