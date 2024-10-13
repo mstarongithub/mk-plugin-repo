@@ -18,7 +18,7 @@ Each endpoint will have the following structure:
     - Out data: Example json object. May be empty if not required
 ```
 
-### Restricitions
+### Restrictions
 
 Endpoints may have restrictions for who can use them. These may depend on context and may be combined.
 If multiple are combined, it's either x or y, not x and y
@@ -49,3 +49,10 @@ The id will be a valid id for one of the possible error types, as described in t
 4. Not approved: The provided actor (from token or public access) isn't approved for performing that action
 5. Can't extend into past: The given timestamp is in the past and can't be used
 6. Already exists: A resource with an equal name already exists
+
+## Endpoints
+
+### Plugins
+### Versions
+### Tokens
+### Admins
