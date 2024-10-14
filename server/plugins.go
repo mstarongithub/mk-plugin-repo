@@ -80,9 +80,6 @@ func getPluginList(w http.ResponseWriter, r *http.Request) {
 	log.Debug().
 		Uints("db-plugins", sliceutils.Map(dbPlugins, func(t storage.Plugin) uint { return t.ID })).
 		Msg("Found plugins")
-	if len(dbPlugins) == 0 {
-		return
-	}
 
 	r.Header.Add("Content-Type", "application/json")
 	data, err := json.Marshal(apiPlugins)
