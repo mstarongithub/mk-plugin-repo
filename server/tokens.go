@@ -14,8 +14,9 @@ import (
 
 func GetAllTokens(w http.ResponseWriter, r *http.Request) {
 	type Token struct {
-		Name  string `json:"name"`
-		Token string `json:"token"`
+		Name      string    `json:"name"`
+		Token     string    `json:"token"`
+		ExpiresAt time.Time `json:"expires_at"`
 	}
 	type OutData struct {
 		Tokens []Token `json:"tokens"`
@@ -47,7 +48,10 @@ func GetAllTokens(w http.ResponseWriter, r *http.Request) {
 
 	returnTokens := OutData{[]Token{}}
 	for _, token := range tokens {
-		returnTokens.Tokens = append(returnTokens.Tokens, Token{token.Name, token.Token})
+		returnTokens.Tokens = append(
+			returnTokens.Tokens,
+			Token{token.Name, token.Token, token.ExpiresAt},
+		)
 	}
 
 	outBytes, err := json.Marshal(&returnTokens)
@@ -123,7 +127,6 @@ func GenerateNewToken(w http.ResponseWriter, r *http.Request) {
 
 func ExtendToken(w http.ResponseWriter, r *http.Request) {
 	type InData struct {
-		Name     string    `json:"name"`
 		ExtendTo time.Time `json:"extend_to"`
 	}
 	store := StorageFromRequest(w, r)
@@ -136,6 +139,7 @@ func ExtendToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	name := r.PathValue("tokenName")
 	body, _ := io.ReadAll(r.Body)
 	data := InData{}
 	err := json.Unmarshal(body, &data)
@@ -152,7 +156,7 @@ func ExtendToken(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	token, err := store.FindTokenByName(*accId, data.Name)
+	token, err := store.FindTokenByName(*accId, name)
 	switch err {
 	case nil:
 	case storage.ErrDataNotFound:
@@ -162,7 +166,7 @@ func ExtendToken(w http.ResponseWriter, r *http.Request) {
 		log.Error().
 			Err(err).
 			Uint("account-id", *accId).
-			Str("token-name", data.Name).
+			Str("token-name", name).
 			Msg("Db failure while getting token for update")
 		other.HttpErr(
 			w,

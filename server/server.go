@@ -135,7 +135,7 @@ func buildV1RestrictedRouter(pkey *passkey.Passkey) http.Handler {
 	router.HandleFunc("DELETE /plugins/{pluginId}", deleteSpecificPlugin)
 	router.HandleFunc("DELETE /plugins/{pluginId}/{versionName}", hideVersion)
 	router.HandleFunc("GET /tokens", GetAllTokens)
-	router.HandleFunc("PUT /tokens", GenerateNewToken)
+	router.HandleFunc("PUT /tokens/{tokenName}", GenerateNewToken)
 	router.HandleFunc("POST /tokens", ExtendToken)
 	router.HandleFunc("DELETE /tokens/{name}", InvalidateToken)
 
@@ -163,10 +163,12 @@ func buildV1RestrictedRouter(pkey *passkey.Passkey) http.Handler {
 
 func buildV1AccountAdminRouter() http.Handler {
 	router := http.NewServeMux()
-	router.HandleFunc("POST /approve/{id}", VerifyUserHandler)
+	router.HandleFunc("POST /approve", VerifyUserHandler)
 	router.HandleFunc("GET /unapproved", GetAllUnverifiedAccountsHandler)
 	router.HandleFunc("POST /promote-admin/plugins", PromotePluginAdminHandler)
 	router.HandleFunc("POST /promote-admin/accounts", PromoteAccountAdminHandler)
+	router.HandleFunc("POST /demote-admin/plugins", DemotePluginAdminHandler)
+	router.HandleFunc("POST /demote-admin/accounts", DemoteAccountAdminHandler)
 	router.HandleFunc("GET /userdata/{id}", InspectAccountAdminHandler)
 
 	var handler http.Handler
