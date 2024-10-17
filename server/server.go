@@ -9,6 +9,7 @@ import (
 
 	"github.com/mstarongithub/passkey"
 	"github.com/rs/cors"
+	"github.com/rs/zerolog/hlog"
 	"github.com/rs/zerolog/log"
 	"gitlab.com/mstarongitlab/goutils/other"
 
@@ -167,20 +168,24 @@ func buildV1RestrictedRouter(pkey *passkey.Passkey) http.Handler {
 	)
 	router.HandleFunc("POST /delete", DeleteAccountHandler)
 
-	return pkey.Auth(
-		CONTEXT_KEY_ACTOR_NAME,
-		nil,
-		func(w http.ResponseWriter, r *http.Request) {
-			other.HttpErr(
-				w,
-				ErrIdNotApproved,
-				"Not authenticated",
-				http.StatusUnauthorized,
-			)
-		},
-	)(
-		ChainMiddlewares(router, passkeyAuthInsertUidMiddleware),
-	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hlog.FromRequest(r).Debug().Any("cookies", r.Cookies()).Msg("Cookies for auth request")
+		pkey.Auth(
+			CONTEXT_KEY_ACTOR_NAME,
+			nil,
+			func(w http.ResponseWriter, r *http.Request) {
+				other.HttpErr(
+					w,
+					ErrIdNotApproved,
+					"Not authenticated",
+					http.StatusUnauthorized,
+				)
+			},
+		)(
+			ChainMiddlewares(router, passkeyAuthInsertUidMiddleware),
+		).ServeHTTP(w, r)
+
+	})
 }
 
 func buildV1AccountAdminRouter() http.Handler {
