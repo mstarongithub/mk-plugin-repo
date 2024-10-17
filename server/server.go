@@ -44,6 +44,10 @@ func NewServer(
 
 	mainRouter.Handle("/", frontendRouter)
 	mainRouter.Handle("/api/", http.StripPrefix("/api", apiRouter))
+	mainRouter.HandleFunc(
+		"/alive",
+		func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "meow") },
+	)
 	pkey.MountRoutes(mainRouter, "/webauthn/")
 
 	server := Server{
@@ -98,6 +102,7 @@ func buildApiRouter(pkey *passkey.Passkey) http.Handler {
 	router := http.NewServeMux()
 
 	router.Handle("/v1/", http.StripPrefix("/v1", buildV1Router(pkey)))
+	router.Handle("/metrics/", http.StripPrefix("/metrics", buildMetricsHandler()))
 	return router
 }
 
@@ -151,13 +156,11 @@ func buildV1RestrictedRouter(pkey *passkey.Passkey) http.Handler {
 
 	return pkey.Auth(
 		CONTEXT_KEY_ACTOR_NAME,
-		// This func takes the name identified by the passkey auth middleware
-		// and inserts the account ID into the context
-		passkeyAuthInsertUid,
+		nil,
 		// TODO: Replace this with func to also check for token before redirecting or refusing
 		passkey.RedirectUnauthorized(url.URL{Path: "/"}),
 	)(
-		router,
+		ChainMiddlewares(router, passkeyAuthInsertUidMiddleware),
 	)
 }
 

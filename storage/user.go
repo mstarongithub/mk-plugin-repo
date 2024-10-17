@@ -79,6 +79,24 @@ func (s *Storage) FindAccountByID(id uint) (*Account, error) {
 	return &acc, nil
 }
 
+func (s *Storage) FindAccountByPasskeyId(pkeyId []byte) (*Account, error) {
+	acc := Account{}
+	logger := log.With().Bytes("account-passkey-id", pkeyId).Logger()
+	logger.Debug().Msg("Looking for account")
+	err := s.db.Where(Account{PasskeyId: pkeyId}).First(&acc).Error
+	switch err {
+	case nil:
+		logger.Info().Msg("Found account")
+		return &acc, nil
+	case gorm.ErrRecordNotFound:
+		logger.Info().Msg("No account found")
+		return nil, ErrAccountNotFound
+	default:
+		logger.Error().Err(err).Msg("Problem while looking for account")
+		return nil, err
+	}
+}
+
 func (s *Storage) AddNewAccount(acc Account) (uint, error) {
 	log.Debug().Any("account-full", &acc).Msg("Adding new account")
 	res := s.db.Create(&acc)

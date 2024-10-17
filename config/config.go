@@ -22,8 +22,7 @@ type ConfigGeneral struct {
 	// The port the server runs under, not necessarly the public one
 	PrivatePort int
 	// The port the server is accessible from in public, usually important for reverse proxies
-	PublicPort    int
-	HashingSecret string `toml:"hash_secret"`
+	PublicPort int
 }
 
 type ConfigSSL struct {
@@ -45,7 +44,7 @@ type ConfigWebauth struct {
 // Superuser data
 // Note: Will be overwritten in dev mode since su and dev share the same ID of 0
 type ConfigSuperuser struct {
-	FirstSetupOTP string `toml:"first_setup_otp"`
+	MetricsPassword string `toml:"metrics_password"`
 }
 
 type Config struct {
@@ -61,12 +60,11 @@ type Config struct {
 
 var defaultConfig = Config{
 	General: ConfigGeneral{
-		Protocol:      "http",
-		TopDomain:     "localhost",
-		SubDomain:     nil,
-		PrivatePort:   8080,
-		PublicPort:    8080,
-		HashingSecret: "placeholder",
+		Protocol:    "http",
+		TopDomain:   "localhost",
+		SubDomain:   nil,
+		PrivatePort: 8080,
+		PublicPort:  8080,
 	},
 	SslConfig: ConfigSSL{
 		HandleSslInApp:        false,
@@ -77,7 +75,7 @@ var defaultConfig = Config{
 		DisplayName: "Misskey Plugin Repo",
 	},
 	Superuser: ConfigSuperuser{
-		FirstSetupOTP: "placeholder",
+		MetricsPassword: "metrics",
 	},
 }
 
