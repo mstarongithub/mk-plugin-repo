@@ -79,7 +79,7 @@ func metricMemoryStatsHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		other.HttpErr(
 			w,
-			HttpErrIdJsonMarshalFail,
+			ErrIdJsonMarshal,
 			"Failed to encode return data",
 			http.StatusInternalServerError,
 		)
