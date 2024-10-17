@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import ThemeSwitcher from './ThemeSwitcher.svelte';
+	import { BASE_DIR, GENERATED_ICON_TYPE } from './baseDir';
 	import logo from './favicon.svg';
 	import Shortcuts from 'shortcuts';
+	import { notify } from './notificationHelper';
 	let inputEl: HTMLInputElement;
 	let smallDevice = false;
+	let isLoggedIn = false;
 
 	if (browser) {
 		const shortcuts = new Shortcuts({
@@ -40,6 +43,44 @@
 			});
 		};
 		attachListener();
+
+		//fetch /api/v1/forbidden-test to check if user is logged in
+		fetch(`${BASE_DIR}/api/v1/forbidden-test`, {
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json'
+			}
+		})
+			.then((response) => {
+				if (response.ok) {
+					console.log('User is logged in');
+					isLoggedIn = true;
+				}
+			})
+			.catch((error) => {
+				console.error(error);
+			});
+	}
+
+	function logout() {
+		fetch(`${BASE_DIR}/api/v1/logout`, {
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json'
+			}
+		})
+			.then((response) => {
+				if (response.ok) {
+					console.log('User logged out');
+					isLoggedIn = false;
+					localStorage.removeItem('username');
+					notify.success('Logged out');
+				}
+			})
+			.catch((error) => {
+				console.error(error);
+				notify.error('Failed to logout');
+			});	
 	}
 </script>
 
@@ -66,30 +107,37 @@
 				{/if}
 			</label>
 		</div>
-		<div class="dropdown dropdown-end">
-			<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar">
-				<div class="w-10 rounded-full">
-					<img
-						alt="Tailwind CSS Navbar component"
-						src="https://woem.men/files/thumbnail-f2f87598-0eca-4abf-b1b2-800bdde1d8bf"
-					/>
+		{#if isLoggedIn}
+			<div class="dropdown dropdown-end">
+				<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar">
+					<div class="w-10 rounded-full">
+						<img
+							alt="Tailwind CSS Navbar component"
+							src="https://api.dicebear.com/9.x/{GENERATED_ICON_TYPE}/svg?seed={localStorage.getItem(
+								'username'
+							)}}"
+						/>
+					</div>
 				</div>
-			</div>
-			<ul
-				tabindex="0"
-				class="mt-3 z-[1] p-2 shadow menu menu-sm dropdown-content bg-base-100 rounded-box w-52"
-			>
-				<li class="pl-2 rounded-full"><ThemeSwitcher></ThemeSwitcher></li>
+				<ul
+					tabindex="0"
+					class="mt-3 z-[1] p-2 shadow menu menu-sm dropdown-content bg-base-100 rounded-box w-52"
+				>
+					<li class="pl-2 rounded-full"><ThemeSwitcher></ThemeSwitcher></li>
 
-				<li>
+					<!-- <li>
 					<a class="justify-between">
 						Profile
 						<span class="badge">New</span>
 					</a>
 				</li>
-				<li><a>Settings</a></li>
-				<li><a>Logout</a></li>
-			</ul>
-		</div>
+				<li><a>Settings</a></li> -->
+					<li><a href="/submit">Submit Plugin/Widget</a></li>
+					<li><a on:click={logout}>Logout</a></li>
+				</ul>
+			</div>
+		{:else}
+			<a href="/login" class="btn btn-primary">Login</a>
+		{/if}
 	</div>
 </div>
