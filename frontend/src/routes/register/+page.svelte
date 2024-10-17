@@ -2,48 +2,46 @@
 	import { BASE_DIR } from '$lib/baseDir';
 	import Navbar from '$lib/Navbar.svelte';
 	import { notify } from '$lib/notificationHelper';
-	import { startAuthentication } from '@simplewebauthn/browser';
+	import { startRegistration } from '@simplewebauthn/browser';
 
 	let username = '';
 
-	async function login() {
+	async function register() {
 		try {
-			// const response = await fetch(`${BASE_DIR}/webauthn/passkey/registerBegin`, {
-			// 	method: 'POST',
-			// 	headers: { 'Content-Type': 'application/json' },
-			// 	body: JSON.stringify({ username })
-			// });
-
-			const response = await fetch(`${BASE_DIR}/webauthn/passkey/loginBegin`, {
+			const response = await fetch(`${BASE_DIR}/webauthn/passkey/registerBegin`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ username: username })
+				body: JSON.stringify({ username })
 			});
-			// Check if the login options are ok.
+			// Check if the registration options are ok.
 			if (!response.ok) {
 				const msg = await response.json();
-				throw new Error('Failed to get login options from server: ' + msg);
+				throw new Error(
+					'User already exists or failed to get registration options from server: ' + msg
+				);
 			}
-			// Convert the login options to JSON.
+			// Convert the registration options to JSON.
 			const options = await response.json();
 
 			// This triggers the browser to display the passkey / WebAuthn modal (e.g. Face ID, Touch ID, Windows Hello).
-			// A new assertionResponse is created. This also means that the challenge has been signed.
-			const assertionResponse = await startAuthentication({
+			// A new attestation is created. This also means a new public-private-key pair is created.
+			const attestationResponse = await startRegistration({
 				optionsJSON: options.publicKey
 			});
 
-			// Send assertionResponse back to server for verification.
-			const verificationResponse = await fetch(`${BASE_DIR}/webauthn/passkey/loginFinish`, {
+			console.log('Attempting to complete registration', attestationResponse);
+			// Send attestationResponse back to server for verification and storage.
+			const verificationResponse = await fetch(`${BASE_DIR}/webauthn/passkey/registerFinish`, {
 				method: 'POST',
 				credentials: 'same-origin',
 				headers: {
 					'Content-Type': 'application/json'
 				},
-				body: JSON.stringify(assertionResponse)
+				body: JSON.stringify(attestationResponse)
 			});
 
 			const msg = await verificationResponse.json();
+
 			if (verificationResponse.ok) {
 				notify.success(msg);
 			} else {
@@ -66,7 +64,7 @@
 <div class="flex flex-col justify-center items-center">
 	<div class="card w-96 bg-base-100 shadow-xl m-10 space-y-3">
 		<div class="card-body">
-			<h1 class="card-title">Login</h1>
+			<h1 class="card-title">Register</h1>
 			<label class="input input-bordered flex items-center gap-2">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -79,9 +77,8 @@
 				>
 				<input type="text" class="grow" placeholder="Username" bind:value={username} />
 			</label>
-
-			<button class="btn btn-primary" on:click={login}>Sign In</button>
+			<button class="btn btn-primary" on:click={register}>Register</button>
 		</div>
 	</div>
-	<p>Dont have an account? <a href="/register" class="link link-accent">Sign up</a></p>
+	<p>Have an account? <a href="/login" class="link link-accent">Login</a></p>
 </div>

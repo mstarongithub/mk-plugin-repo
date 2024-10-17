@@ -2,3 +2,4 @@ test.db
 db.sqlite
 .air.toml
 tmp/
+mk-plugin-repo.exe
