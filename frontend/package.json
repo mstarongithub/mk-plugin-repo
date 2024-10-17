@@ -43,6 +43,7 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@simplewebauthn/browser": "^11.0.0",
 		"shortcuts": "^3.0.1",
 		"svelte-french-toast": "^1.2.0"
 	}
