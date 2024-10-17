@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
-	"net/url"
 	"strings"
+	"time"
 
 	"github.com/mstarongithub/passkey"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog/log"
+	"gitlab.com/mstarongitlab/goutils/other"
 
 	"github.com/mstarongithub/mk-plugin-repo/storage"
 )
@@ -143,6 +144,18 @@ func buildV1RestrictedRouter(pkey *passkey.Passkey) http.Handler {
 	router.HandleFunc("PUT /tokens/{tokenName}", GenerateNewToken)
 	router.HandleFunc("POST /tokens", ExtendToken)
 	router.HandleFunc("DELETE /tokens/{name}", InvalidateToken)
+	router.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
+		http.SetCookie(w, &http.Cookie{
+			Name:     "sid",
+			Value:    "",
+			Path:     "/",
+			Expires:  time.Now().Add(time.Hour * 24 * -7),
+			MaxAge:   -5,
+			Secure:   true,
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+		})
+	})
 
 	router.Handle(
 		"/admin/users/",
@@ -157,8 +170,14 @@ func buildV1RestrictedRouter(pkey *passkey.Passkey) http.Handler {
 	return pkey.Auth(
 		CONTEXT_KEY_ACTOR_NAME,
 		nil,
-		// TODO: Replace this with func to also check for token before redirecting or refusing
-		passkey.RedirectUnauthorized(url.URL{Path: "/"}),
+		func(w http.ResponseWriter, r *http.Request) {
+			other.HttpErr(
+				w,
+				ErrIdNotApproved,
+				"Not authenticated",
+				http.StatusUnauthorized,
+			)
+		},
 	)(
 		ChainMiddlewares(router, passkeyAuthInsertUidMiddleware),
 	)
