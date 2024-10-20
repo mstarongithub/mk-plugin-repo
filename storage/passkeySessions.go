@@ -24,6 +24,7 @@ func (s *Storage) GetSession(sessionId string) (*webauthn.SessionData, bool) {
 	session := PasskeySession{}
 	res := s.db.Where("id = ?", sessionId).First(&session)
 	if res.Error != nil {
+		log.Error().Err(res.Error).Msg("Failed to get passkey session from db")
 		return nil, false
 	}
 	log.Debug().Str("id", sessionId).Any("webauthn-data", &session).Msg("Found passkey session")

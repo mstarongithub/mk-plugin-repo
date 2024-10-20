@@ -24,3 +24,11 @@ func (t *PluginType) Scan(value any) error {
 	*t = PluginType(v)
 	return nil
 }
+
+func (t *PluginType) String() string {
+	if *t == PLUGIN_TYPE_PLUGIN {
+		return "Plugin"
+	} else {
+		return "Widget"
+	}
+}

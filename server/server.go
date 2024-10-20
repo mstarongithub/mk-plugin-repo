@@ -50,7 +50,7 @@ func NewServer(
 		"/alive",
 		func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "meow") },
 	)
-	pkey.MountRoutes(mainRouter, "/webauthn/")
+	mainRouter.Handle("/webauthn/", http.StripPrefix("/webauthn", buildPasskeyRouter(pkey)))
 
 	server := Server{
 		storage:    store,
@@ -114,6 +114,7 @@ func buildV1Router(pkey *passkey.Passkey) http.Handler {
 	router.HandleFunc("GET /plugins", getPluginList)
 	router.HandleFunc("GET /plugins/{pluginId}", getSpecificPlugin)
 	router.HandleFunc("GET /plugins/{pluginId}/{versionName}", getVersion)
+	router.HandleFunc("GET /accounts/{accountId}", getPublicAccountDataHandler)
 
 	// router.HandleFunc("GET /auth/login/start", AuthLoginPWHandler)
 	// router.HandleFunc("POST /auth/login/mfa", AuthLoginMfaHandler)
@@ -145,6 +146,7 @@ func buildV1RestrictedRouter(pkey *passkey.Passkey) http.Handler {
 	router.HandleFunc("PUT /tokens/{tokenName}", GenerateNewToken)
 	router.HandleFunc("POST /tokens", ExtendToken)
 	router.HandleFunc("DELETE /tokens/{name}", InvalidateToken)
+	router.HandleFunc("POST /accounts/update", updateAccountHandler)
 	router.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
 		http.SetCookie(w, &http.Cookie{
 			Name:     "sid",
@@ -198,18 +200,21 @@ func buildV1AccountAdminRouter() http.Handler {
 	router.HandleFunc("POST /demote-admin/accounts", DemoteAccountAdminHandler)
 	router.HandleFunc("GET /userdata/{id}", InspectAccountAdminHandler)
 
-	var handler http.Handler
-	handler = ChainMiddlewares(router, CanApproveUsersOnlyMiddleware)
-
-	return handler
+	return ChainMiddlewares(router, CanApproveUsersOnlyMiddleware)
 }
 
 func buildV1PluginAdminRouter() http.Handler {
 	router := http.NewServeMux()
 	router.HandleFunc("POST /approve", VerifyNewPluginHandler)
 	router.HandleFunc("GET /unapproved", GetAllUnverifiedPluginshandler)
+	router.HandleFunc("GET /plugin/{pluginid}", getAdminPluginData)
 
-	var handler http.Handler
-	handler = ChainMiddlewares(router, CanApproveNotesOnlyMiddleware)
-	return handler
+	return ChainMiddlewares(router, CanApproveNotesOnlyMiddleware)
+}
+
+func buildPasskeyRouter(pkey *passkey.Passkey) http.Handler {
+	router := http.NewServeMux()
+
+	pkey.MountRoutes(router, "/")
+	return forceCorrectPasskeyAuthFlowMiddleware(pkey, router)
 }

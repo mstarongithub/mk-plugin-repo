@@ -9,6 +9,11 @@ var (
 		"info",
 		"Set the logging level to either debug, info, warn, error or fatal (case insensitive)",
 	)
+	flagInsecureCookies = flag.Bool(
+		"insecureCookies",
+		false,
+		"Use insecure cookies for session storage",
+	)
 )
 
 func init() {

@@ -51,7 +51,7 @@ func (s *Storage) FindAccountByName(name string) (*Account, error) {
 	logger.Debug().Msg("Looking for account")
 	acc := Account{}
 
-	res := s.db.First(&acc, "name = ?", name)
+	res := s.db.Where("name = ?", name).First(&acc)
 	if res.RowsAffected == 0 || errors.Is(res.Error, gorm.ErrRecordNotFound) {
 		logger.Debug().Msg("No account found")
 		return nil, ErrAccountNotFound

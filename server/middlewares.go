@@ -2,11 +2,16 @@ package server
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/mstarongithub/mk-plugin-repo/config"
+	"github.com/mstarongithub/mk-plugin-repo/storage"
+	"github.com/mstarongithub/passkey"
 	"github.com/rs/zerolog/hlog"
 	"github.com/rs/zerolog/log"
 	"gitlab.com/mstarongitlab/goutils/other"
@@ -158,63 +163,114 @@ func profilingAuthenticationMiddleware(handler http.Handler) http.Handler {
 	})
 }
 
-// func TokenOrAuthMiddleware(h http.Handler) http.Handler {
-// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		// First we need the auth layer to use
-// 		authLayer := AuthFromRequestContext(w, r)
-// 		if authLayer == nil {
-// 			return
-// 		}
-// 		store := StorageFromRequest(w, r)
-// 		if store == nil {
-// 			return
-// 		}
-// 		log := LogFromRequestContext(w, r)
-// 		if log == nil {
-// 			return
-// 		}
-// 		log.Debugln("TokenOrAuthMiddleware called")
-// 		// For the authentication, check the existence of a token first
-// 		// If there is a token, ignore basic auth and fail if the token is false
-// 		token := r.Header.Get(auth.AUTH_TOKEN_HEADER)
-// 		if strings.TrimPrefix(token, "Bearer ") != "" {
-// 			accId, ok := authLayer.CheckToken(token)
-// 			if !ok {
-// 				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-// 				return
-// 			} else {
-// 				h.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), CONTEXT_KEY_ACTOR_ID, accId)))
-// 				return
-// 			}
-// 		}
-// 		// No token found, try basic auth
-// 		username, password, authSet := r.BasicAuth()
-// 		if !authSet {
-// 			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-// 			return
-// 		}
-// 		// If the account requires mfa, unlucky. Better generate a token for next time
-// 		if status, _ := authLayer.LoginWithPassword(username, password); status != auth.AUTH_SUCCESS {
-// 			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-// 			return
-// 		}
-//
-// 		acc, err := store.FindAccountByName(username)
-// 		if err != nil {
-// 			log.WithError(err).
-// 				WithField("middleware", "authentication").
-// 				Warningln("Completed authentication but failed to get account afterwards")
-// 			http.Error(
-// 				w,
-// 				"Failed to get account after authentication",
-// 				http.StatusInternalServerError,
-// 			)
-// 		}
-// 		if !acc.Approved {
-// 			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-// 			return
-// 		}
-//
-// 		h.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), CONTEXT_KEY_ACTOR_ID, acc.ID)))
-// 	})
-// }
+func forceCorrectPasskeyAuthFlowMiddleware(
+	pkey *passkey.Passkey,
+	handler http.Handler,
+) http.Handler {
+	var username struct {
+		Username string `json:"username"`
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Don't fuck with the request if not intended for starting to register or login
+		if !strings.HasSuffix(r.URL.Path, "Begin") {
+			log.Debug().Msg("Request to non-begin passkey method, doing nothing")
+			handler.ServeHTTP(w, r)
+			return
+		}
+		store := StorageFromRequest(w, r)
+		if store == nil {
+			return
+		}
+		// Grab all needed data
+		// First read and parse body
+		body, _ := io.ReadAll(r.Body)
+		log.Debug().Bytes("body", body).Msg("Body of auth begin request")
+		err := json.Unmarshal(body, &username)
+		if err != nil {
+			other.HttpErr(w, ErrIdBadRequest, "Not a username json object", http.StatusBadRequest)
+			return
+		}
+		// Then check if we can read the cookie
+		sid, err := r.Cookie("sid")
+		// If we can't read the cookie, it doesn't exist
+		// Thus no user is logged in
+		// NOTE: This assumption *could* cause maybe a problem if the registerBegin endpoint is called with a bearer token
+		//       However, I'm pretty certain that such a token won't have any impact on the execution as of right now
+		//       Since there's no point in the code before or after this moment where a bearer token is being read
+		//       The only point where a bearer token is read is for calls to a login regstricted endpoint
+		//       if no passkey session is around
+		if err != nil {
+			log.Debug().
+				Msg("Request has no passkey session cookie, is fresh login/register. Checking if account with requested username already exists")
+			_, err = store.FindAccountByName(username.Username)
+			switch err {
+			case nil:
+				log.Info().
+					Str("username", username.Username).
+					Msg("Account with same name already exists, preventing login")
+				other.HttpErr(
+					w,
+					ErrIdAlreadyExists,
+					"Account with that name already exists",
+					http.StatusBadRequest,
+				)
+			case storage.ErrAccountNotFound:
+				// Expected case where no account with that name exists yet
+				log.Debug().
+					Str("username", username.Username).
+					Msg("No account with this username exists yet, passing through")
+				r.Body = io.NopCloser(strings.NewReader(string(body)))
+				r.ContentLength = int64(len(body))
+				handler.ServeHTTP(w, r)
+			default:
+				log.Error().
+					Err(err).
+					Str("username", username.Username).
+					Msg("Failed to check if account with username already exists")
+				other.HttpErr(
+					w,
+					ErrIdDbErr,
+					"Failed to check if account with that name already exists",
+					http.StatusInternalServerError,
+				)
+			}
+			return
+		} else {
+			log.Debug().Msg("Account is already logged in, force replacing given username with logged in's username")
+			session, ok := store.GetSession(sid.Value)
+			if !ok {
+				log.Error().Msg("Failed to get passkey session")
+				other.HttpErr(w, ErrIdDbErr, "Failed to get passkey session", http.StatusInternalServerError)
+				return
+			}
+			if session.Expires.Before(time.Now()) {
+				log.Debug().Msg("Session expired, failing")
+				http.SetCookie(w, &http.Cookie{
+					Name:    "sid",
+					Value:   "",
+					Expires: time.Now().Add(time.Hour * 24 * -7),
+					MaxAge:  -5,
+				})
+				other.HttpErr(w, ErrIdNotApproved, "Session expired", http.StatusForbidden)
+				return
+			}
+			acc, err := store.FindAccountByPasskeyId(session.UserID)
+			switch err {
+			case nil:
+				log.Debug().Msg("Found an account")
+				// Replace body. Replaces all occurances of the requested username with the logged in's username
+				newBody := strings.ReplaceAll(string(body), username.Username, acc.Name)
+				log.Debug().Str("new-body", newBody).Msg("New body passed to auth begin endpoint")
+				r.Body = io.NopCloser(strings.NewReader(newBody))
+				r.ContentLength = int64(len(newBody))
+				handler.ServeHTTP(w, r)
+			case storage.ErrAccountNotFound:
+				log.Debug().Msg("Account from token not found")
+				other.HttpErr(w, ErrIdDataNotFound, "Account from token not found", http.StatusForbidden)
+			default:
+				other.HttpErr(w, ErrIdDbErr, "Failed to get account in db", http.StatusInternalServerError)
+				log.Error().Err(err).Msg("Failed to get account from db")
+			}
+		}
+	})
+}

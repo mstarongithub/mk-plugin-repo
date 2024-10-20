@@ -270,72 +270,6 @@ func PromoteAccountAdminHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func DeleteAccountHandler(w http.ResponseWriter, r *http.Request) {
-	type InData struct {
-		Id uint `json:"id"`
-	}
-	store := StorageFromRequest(w, r)
-	if store == nil {
-		return
-	}
-	actorId := AccIdFromRequestContext(w, r)
-	if actorId == nil {
-		return
-	}
-	log := hlog.FromRequest(r)
-	actor, err := store.FindAccountByID(*actorId)
-	switch err {
-	case nil:
-	case storage.ErrAccountNotFound:
-		log.Warn().Uint("actor", *actorId).Msg("Actor performing account deletion not found")
-		other.HttpErr(
-			w,
-			ErrIdDataNotFound,
-			"Actor performing deletion not found",
-			http.StatusNotFound,
-		)
-		return
-	default:
-		log.Error().
-			Err(err).
-			Uint("actor-id", *actorId).
-			Msg("Problem getting actor for account deletion from db")
-		other.HttpErr(
-			w,
-			ErrIdDbErr,
-			"Db failure while getting actor performing deletion",
-			http.StatusInternalServerError,
-		)
-		return
-	}
-	rawData, err := io.ReadAll(r.Body)
-	if err != nil {
-		other.HttpErr(w, ErrIdBadRequest, "bad request body", http.StatusBadRequest)
-		return
-	}
-	data := InData{}
-	err = json.Unmarshal(rawData, &data)
-	if err != nil {
-		other.HttpErr(w, ErrIdBadRequest, "body not required json data", http.StatusBadRequest)
-		return
-	}
-	if data.Id != *actorId && !actor.CanApproveUsers {
-		other.HttpErr(w, ErrIdNotApproved, "operation forbidden", http.StatusForbidden)
-		return
-	}
-	if data.Id == 1 {
-		log.Warn().Msg("Attempt to delete superuser. Telling them to kindly fuck off")
-		other.HttpErr(
-			w,
-			ErrIdNotApproved,
-			"Kindly fuck off and stop trying to delete the superuser",
-			http.StatusForbidden,
-		)
-		return
-	}
-	store.DeleteAccount(data.Id)
-}
-
 func DemotePluginAdminHandler(w http.ResponseWriter, r *http.Request) {
 	type InData struct {
 		Id uint `json:"id"`
@@ -523,4 +457,84 @@ func InspectAccountAdminHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Fprint(w, string(retData))
+}
+
+func getAdminPluginData(w http.ResponseWriter, r *http.Request) {
+	type OutData struct {
+		Id                 uint
+		CurrentVersion     string
+		Name               string
+		SummaryShort       string
+		SummaryLong        string
+		AuthorID           uint
+		Tags               []string
+		Type               string
+		Approved           bool
+		CurrentVersionCode string
+	}
+	store := StorageFromRequest(w, r)
+	if store == nil {
+		return
+	}
+	log := hlog.FromRequest(r)
+	pluginIdString := r.PathValue("pluginId")
+	pluginId64, err := strconv.ParseUint(pluginIdString, 10, 0)
+	if err != nil {
+		other.HttpErr(w, ErrIdBadRequest, "plugin id must be a uint", http.StatusBadRequest)
+		return
+	}
+	pluginId := uint(pluginId64)
+	plugin, err := store.GetPluginByID(pluginId)
+	switch err {
+	case nil:
+	case storage.ErrPluginNotFound:
+		other.HttpErr(w, ErrIdDataNotFound, "plugin id doesn't exist", http.StatusNotFound)
+		log.Info().Uint("plugin-id", pluginId).Msg("Non-existent plugin requested")
+		return
+	default:
+		log.Error().Err(err).Uint("plugin-id", pluginId).Msg("Failed to get plugin from db")
+		other.HttpErr(w, ErrIdDbErr, "Failed to get plugin from db", http.StatusInternalServerError)
+		return
+	}
+	version, err := store.TryFindVersion(pluginId, plugin.CurrentVersion)
+	// Safe to assume that only case here can be a db failure
+	// The current version of a plugin will always be there
+	if err != nil {
+		log.Error().
+			Err(err).
+			Uint("plugin-id", pluginId).
+			Str("version-name", plugin.CurrentVersion).
+			Msg("Failed to get version from storage")
+		other.HttpErr(
+			w,
+			ErrIdDbErr,
+			"Failed to get current version from storage",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	out := OutData{
+		Id:                 plugin.ID,
+		CurrentVersion:     version.Version,
+		Name:               plugin.Name,
+		SummaryShort:       plugin.SummaryShort,
+		SummaryLong:        plugin.SummaryLong,
+		AuthorID:           plugin.AuthorID,
+		Tags:               plugin.Tags,
+		Type:               plugin.Type.String(),
+		Approved:           plugin.Approved,
+		CurrentVersionCode: version.Code,
+	}
+	jsonOut, err := json.Marshal(&out)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to marshal response")
+		other.HttpErr(
+			w,
+			ErrIdJsonMarshal,
+			"Failed to marshal response",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	fmt.Fprint(w, string(jsonOut))
 }

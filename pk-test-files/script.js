@@ -22,6 +22,7 @@ async function register() {
     // Check if the registration options are ok.
     if (!response.ok) {
       const msg = await response.json();
+      console.log("bad begin response: ", msg);
       throw new Error(
         "User already exists or failed to get registration options from server: " +
         msg,

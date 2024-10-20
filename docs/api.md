@@ -13,12 +13,12 @@ Each endpoint will have the following structure:
 
 ```markdown
 - Endpoint name:
-    - Url: Full Url of the endpoint. May contain path parameters identified via `{name}`
-    - Method: HTTP Method used
-    - Description: A description of the endpoint's function
-    - Restrictions: What restrictions are applied when calling it. See 
-    - In data: Example json object. May be empty if not required
-    - Out data: Example json object. May be empty if not required
+  - Url: Full Url of the endpoint. May contain path parameters identified via `{name}`
+  - Method: HTTP Method used
+  - Description: A description of the endpoint's function
+  - Restrictions: What restrictions are applied when calling it. See
+  - In data: Example json object. May be empty if not required
+  - Out data: Example json object. May be empty if not required
 ```
 
 ### Restrictions
@@ -44,8 +44,8 @@ The error message is a json object with the following form:
 
 ```json
 {
-    "id": 0123,
-    "message": "Some message"
+  "id": 0123,
+  "message": "Some message"
 }
 ```
 
@@ -67,6 +67,7 @@ as described in the following list.
 ### Plugins
 
 - All plugins
+
   - Url: `/api/v1/plugins`
   - Method: `GET`
   - Description: Get a list of all (verified) plugins known
@@ -90,6 +91,7 @@ as described in the following list.
     ```
 
 - Get specific plugin
+
   - Url: `/api/v1/plugins/{pluginId}`
   - Method: `GET`
   - Description: Get a specific plugin
@@ -111,6 +113,7 @@ as described in the following list.
     ```
 
 - New plugin
+
   - Url: `/api/v1/plugins`
   - Method: `POST`
   - Description: Create a new plugin
@@ -131,6 +134,7 @@ as described in the following list.
     ```
 
 - Update plugin
+
   - Url: `/api/v1/plugins/{pluginId}`
   - Method: `PUT`
   - Description: Update a targeted plugin
@@ -155,6 +159,7 @@ as described in the following list.
 ### Versions
 
 - Get version
+
   - Url: `/api/v1/plugins/{pluginId}/{versionName}`
   - Method: `GET`
   - Description: Get a specific version of a plugin
@@ -169,6 +174,7 @@ as described in the following list.
     ```
 
 - New version
+
   - Url: `/api/v1/plugins/{pluginId}`
   - Method: `POST`
   - Description: Create a new version for a plugin
@@ -192,6 +198,7 @@ as described in the following list.
 ### Tokens
 
 - Get tokens
+
   - Url: `/api/v1/tokens`
   - Method: `GET`
   - Description: Get all tokens for the authenticated account
@@ -211,6 +218,7 @@ as described in the following list.
     ```
 
 - New token
+
   - Url: `/api/v1/tokens`
   - Method: `POST`
   - Description: Create a new token
@@ -225,6 +233,7 @@ as described in the following list.
     ```
 
 - Extend token
+
   - Url: `/api/v1/tokens/{name}`
   - Method: `PUT`
   - Description: Extend a token's expiry timestamp
@@ -245,15 +254,61 @@ as described in the following list.
 
 ### Account
 
+- View account
+
+  - Url: `/api/v1/accounts/{accountId}`
+  - Method: `GET`
+  - Description: View the public data of an account
+  - Restrictions: Open
+  - Out data:
+
+    ```json
+    {
+      "name": "example name", // string: Name of the account
+      "description": "Account description", // string: Description of the account
+      "approved": true, // bool: Whether the account is approved
+      "user_admin": false, // bool: Whether the account has user admin rights
+      "plugin_admin": false, // bool: Whether the account has plugin admin rights
+      "plugins_owned": [123, 456], // array of uints: List of plugin Ids the account owns
+      "links": ["https://gitlab.com/examplename"] // array of strings: List of links the account wants to show
+    }
+    ```
+
 - Delete account
+
   - Url: `/api/v1/delete`
   - Method: `POST`
   - Description: Delete an account
   - Restrictions: Owner + Account Admin
+  - In data:
+
+    ```json
+    {
+      "id": 123 // uint: Account Id to delete
+    }
+    ```
+
+- Update account
+
+  - Url: `/api/v1/accounts/update`
+  - Method: `POST`
+  - Description: Update an account's data
+  - Restrictions: Owner + Account Admin
+  - In data:
+
+    ```json
+    {
+      "account_id": 123, // uint, optional: Id of the account to modify. If not same, requires account admin perms
+      "name": "bob", // string, optional: New name of the account. Must not be taken by another account
+      "description": "new description", string, optional: New description of the account
+      "links": ["https://new.link"] // array of strings, optional: New list of links for the account
+    }
+    ```
 
 ### Admins
 
 - Approve new account
+
   - Url: `/api/v1/admin/users/approve`
   - Method `POST`
   - Description: Approve a new account
@@ -267,6 +322,7 @@ as described in the following list.
     ```
 
 - Get unapproved accounts
+
   - Url: `/api/v1/admin/users/unapproved`
   - Method: `GET`
   - Description: Get a list of account ids that haven't been approved yet
@@ -280,6 +336,7 @@ as described in the following list.
     ```
 
 - Promote to plugin admin
+
   - Url: `/api/v1/admins/users/promote-admin/plugins`
   - Method: `POST`
   - Description: Promote an account to plugin admin
@@ -293,6 +350,7 @@ as described in the following list.
     ```
 
 - Promote to account admin
+
   - Url: `/api/v1/admins/users/promote-admin/accounts`
   - Method: `POST`
   - Description: Promote an account to account admin
@@ -306,6 +364,7 @@ as described in the following list.
     ```
 
 - Demote from plugin admin
+
   - Url: `/api/v1/admins/users/demote-admin/plugins`
   - Method: `POST`
   - Description: Demote an account from plugin admin.
@@ -320,6 +379,7 @@ as described in the following list.
     ```
 
 - Demote from account admin
+
   - Url: `/api/v1/admins/users/demote-admin/accounts`
   - Method: `POST`
   - Description: Demote an account from account admin.
@@ -334,6 +394,7 @@ as described in the following list.
     ```
 
 - Get user
+
   - Url: `/api/v1/admins/users/userdata/{id}`
   - Method: `GET`
   - Description: Get detailed data for a given account
@@ -354,6 +415,7 @@ as described in the following list.
     ```
 
 - Approve plugin
+
   - Url: `/api/v1/admin/plugins/approve`
   - Method: `POST`
   - Description: Approve a new plugin
@@ -367,6 +429,7 @@ as described in the following list.
     ```
 
 - Get unapproved plugins
+
   - Url: `/api/v1/admin/plugins/unapproved`
   - Method: `GET`
   - Description: Get all unapproved plugins
@@ -381,6 +444,4 @@ as described in the following list.
 
 ## Missing endpoints
 
-- Get account data for public access
-- Update account data (owner & admin)
 - Admin inspect unapproved plugin

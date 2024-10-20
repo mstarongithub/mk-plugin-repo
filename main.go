@@ -77,7 +77,7 @@ func main() {
 			SessionStore:  store,
 			SessionMaxAge: time.Hour * 24,
 		},
-		passkey.WithLogger(&util.ZerologWrapper{}),
+		buildPasskeyOptions()...,
 	)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to configure passkeys")
@@ -123,4 +123,13 @@ func setLogger(extraLogWriters ...io.Writer) {
 			append([]io.Writer{log.Logger}, extraLogWriters...)...,
 		)).With().Timestamp().Logger()
 	}
+}
+
+func buildPasskeyOptions() []passkey.Option {
+	opts := []passkey.Option{passkey.WithLogger(&util.ZerologWrapper{})}
+	if *flagInsecureCookies {
+		opts = append(opts, passkey.WithInsecureCookie())
+	}
+
+	return opts
 }
