@@ -46,6 +46,7 @@
 			const msg = await verificationResponse.json();
 			if (verificationResponse.ok) {
 				notify.success(msg);
+				localStorage.setItem('username', username);
 			} else {
 				notify.error(msg);
 			}
