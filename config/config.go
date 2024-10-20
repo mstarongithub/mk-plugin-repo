@@ -60,6 +60,7 @@ type Config struct {
 	WebAuth ConfigWebauth `toml:"webauth"`
 	// Superuser account config. Required
 	Superuser ConfigSuperuser `toml:"superuser"`
+	Debug     ConfigDebug     `toml:"debug"`
 }
 
 var defaultConfig = Config{
@@ -80,6 +81,10 @@ var defaultConfig = Config{
 	},
 	Superuser: ConfigSuperuser{
 		MetricsPassword: "metrics",
+	},
+	Debug: ConfigDebug{
+		AutoApproveAccounts: false,
+		AutoApprovePlugins:  false,
 	},
 }
 

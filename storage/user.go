@@ -11,6 +11,7 @@ import (
 	"gitlab.com/mstarongitlab/goutils/sliceutils"
 	"gorm.io/gorm"
 
+	"github.com/mstarongithub/mk-plugin-repo/config"
 	customtypes "github.com/mstarongithub/mk-plugin-repo/storage/customTypes"
 )
 
@@ -99,7 +100,12 @@ func (s *Storage) FindAccountByPasskeyId(pkeyId []byte) (*Account, error) {
 
 func (s *Storage) AddNewAccount(acc Account) (uint, error) {
 	log.Debug().Any("account-full", &acc).Msg("Adding new account")
-	res := s.db.Create(&acc)
+	var res *gorm.DB
+	if config.GlobalConfig.Debug.AutoApproveAccounts {
+		res = s.db.Assign(Account{Approved: true}).Create(&acc)
+	} else {
+		res = s.db.Create(&acc)
+	}
 	if res.Error != nil {
 		log.Error().Err(res.Error).Any("account-full", &acc).Msg("Failed to add new account")
 		return 0, res.Error
@@ -184,6 +190,9 @@ func (s *Storage) GetOrCreateUser(userID string) passkey.User {
 			c, err = rand.Read(data)
 		}
 		acc.PasskeyId = data
+	}
+	if config.GlobalConfig.Debug.AutoApproveAccounts {
+		acc.Approved = true
 	}
 	acc.Name = userID
 	s.db.Save(acc)

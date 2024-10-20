@@ -8,6 +8,7 @@ import (
 	"gitlab.com/mstarongitlab/goutils/sliceutils"
 	"gorm.io/gorm"
 
+	"github.com/mstarongithub/mk-plugin-repo/config"
 	customtypes "github.com/mstarongithub/mk-plugin-repo/storage/customTypes"
 )
 
@@ -128,7 +129,9 @@ func (storage *Storage) NewPlugin(
 		log.Warn().Str("plugin-name", name).Msg("A plugin with that name already exists")
 		return nil, ErrAlreadyExists
 	}
-
+	if config.GlobalConfig.Debug.AutoApprovePlugins {
+		plugin.Approved = true
+	}
 	log.Debug().Any("plugin-full", &plugin).Msg("Attempting to insert new plugin into db")
 	res := storage.db.Create(&plugin)
 	if res.RowsAffected == 0 {
