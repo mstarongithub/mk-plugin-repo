@@ -41,8 +41,12 @@ type ConfigWebauth struct {
 	// ID can be extracted from root url
 }
 
+type ConfigDebug struct {
+	AutoApproveAccounts bool `toml:"auto_approve_accounts"`
+	AutoApprovePlugins  bool `toml:"auto_approve_plugins"`
+}
+
 // Superuser data
-// Note: Will be overwritten in dev mode since su and dev share the same ID of 0
 type ConfigSuperuser struct {
 	MetricsPassword string `toml:"metrics_password"`
 }

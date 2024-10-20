@@ -216,5 +216,5 @@ func buildPasskeyRouter(pkey *passkey.Passkey) http.Handler {
 	router := http.NewServeMux()
 
 	pkey.MountRoutes(router, "/")
-	return forceCorrectPasskeyAuthFlowMiddleware(pkey, router)
+	return forceCorrectPasskeyAuthFlowMiddleware(router)
 }

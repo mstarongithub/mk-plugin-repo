@@ -2,19 +2,15 @@ package server
 
 import (
 	"context"
-	"encoding/json"
-	"io"
 	"net/http"
 	"slices"
-	"strings"
 	"time"
 
-	"github.com/mstarongithub/mk-plugin-repo/config"
-	"github.com/mstarongithub/mk-plugin-repo/storage"
-	"github.com/mstarongithub/passkey"
 	"github.com/rs/zerolog/hlog"
 	"github.com/rs/zerolog/log"
 	"gitlab.com/mstarongitlab/goutils/other"
+
+	"github.com/mstarongithub/mk-plugin-repo/config"
 )
 
 type HandlerBuilder func(http.Handler) http.Handler
@@ -69,10 +65,10 @@ func CanApproveNotesOnlyMiddleware(h http.Handler) http.Handler {
 		if store == nil {
 			return
 		}
-		log := hlog.FromRequest(r)
+		logger := hlog.FromRequest(r)
 		acc, err := store.FindAccountByID(*accId)
 		if err != nil {
-			log.Warn().Err(err).
+			logger.Warn().Err(err).
 				Msg("Failed to get account from id after acc is already verified")
 			http.Error(
 				w,
@@ -99,10 +95,10 @@ func CanApproveUsersOnlyMiddleware(h http.Handler) http.Handler {
 		if store == nil {
 			return
 		}
-		log := hlog.FromRequest(r)
+		logger := hlog.FromRequest(r)
 		acc, err := store.FindAccountByID(*accId)
 		if err != nil {
-			log.Warn().Err(err).
+			logger.Warn().Err(err).
 				Msg("Failed to get account from id after acc is already verified")
 			http.Error(
 				w,
@@ -116,18 +112,6 @@ func CanApproveUsersOnlyMiddleware(h http.Handler) http.Handler {
 			return
 		}
 		h.ServeHTTP(w, r)
-	})
-}
-
-func RouteBasedLoggingMiddleware(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		newRequest := r.WithContext(context.WithValue(
-			ctx,
-			CONTEXT_KEY_LOG,
-			log.With().Str("url-path", r.URL.Path).Logger(),
-		))
-		h.ServeHTTP(w, newRequest)
 	})
 }
 
@@ -160,117 +144,5 @@ func profilingAuthenticationMiddleware(handler http.Handler) http.Handler {
 			return
 		}
 		handler.ServeHTTP(w, r)
-	})
-}
-
-func forceCorrectPasskeyAuthFlowMiddleware(
-	pkey *passkey.Passkey,
-	handler http.Handler,
-) http.Handler {
-	var username struct {
-		Username string `json:"username"`
-	}
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Don't fuck with the request if not intended for starting to register or login
-		if !strings.HasSuffix(r.URL.Path, "Begin") {
-			log.Debug().Msg("Request to non-begin passkey method, doing nothing")
-			handler.ServeHTTP(w, r)
-			return
-		}
-		store := StorageFromRequest(w, r)
-		if store == nil {
-			return
-		}
-		// Grab all needed data
-		// First read and parse body
-		body, _ := io.ReadAll(r.Body)
-		log.Debug().Bytes("body", body).Msg("Body of auth begin request")
-		err := json.Unmarshal(body, &username)
-		if err != nil {
-			other.HttpErr(w, ErrIdBadRequest, "Not a username json object", http.StatusBadRequest)
-			return
-		}
-		// Then check if we can read the cookie
-		sid, err := r.Cookie("sid")
-		// If we can't read the cookie, it doesn't exist
-		// Thus no user is logged in
-		// NOTE: This assumption *could* cause maybe a problem if the registerBegin endpoint is called with a bearer token
-		//       However, I'm pretty certain that such a token won't have any impact on the execution as of right now
-		//       Since there's no point in the code before or after this moment where a bearer token is being read
-		//       The only point where a bearer token is read is for calls to a login regstricted endpoint
-		//       if no passkey session is around
-		if err != nil {
-			log.Debug().
-				Msg("Request has no passkey session cookie, is fresh login/register. Checking if account with requested username already exists")
-			_, err = store.FindAccountByName(username.Username)
-			switch err {
-			case nil:
-				log.Info().
-					Str("username", username.Username).
-					Msg("Account with same name already exists, preventing login")
-				other.HttpErr(
-					w,
-					ErrIdAlreadyExists,
-					"Account with that name already exists",
-					http.StatusBadRequest,
-				)
-			case storage.ErrAccountNotFound:
-				// Expected case where no account with that name exists yet
-				log.Debug().
-					Str("username", username.Username).
-					Msg("No account with this username exists yet, passing through")
-				r.Body = io.NopCloser(strings.NewReader(string(body)))
-				r.ContentLength = int64(len(body))
-				handler.ServeHTTP(w, r)
-			default:
-				log.Error().
-					Err(err).
-					Str("username", username.Username).
-					Msg("Failed to check if account with username already exists")
-				other.HttpErr(
-					w,
-					ErrIdDbErr,
-					"Failed to check if account with that name already exists",
-					http.StatusInternalServerError,
-				)
-			}
-			return
-		} else {
-			log.Debug().Msg("Account is already logged in, force replacing given username with logged in's username")
-			session, ok := store.GetSession(sid.Value)
-			if !ok {
-				log.Error().Msg("Failed to get passkey session")
-				other.HttpErr(w, ErrIdDbErr, "Failed to get passkey session", http.StatusInternalServerError)
-				return
-			}
-			if session.Expires.Before(time.Now()) {
-				log.Debug().Msg("Session expired, failing")
-				http.SetCookie(w, &http.Cookie{
-					Name:    "sid",
-					Value:   "",
-					Expires: time.Now().Add(time.Hour * 24 * -7),
-					MaxAge:  -5,
-				})
-				other.HttpErr(w, ErrIdNotApproved, "Session expired", http.StatusForbidden)
-				return
-			}
-			acc, err := store.FindAccountByPasskeyId(session.UserID)
-			switch err {
-			case nil:
-				log.Debug().Msg("Found an account")
-				// Replace body. Replaces all occurances of the requested username with the logged in's username
-				newBody := strings.ReplaceAll(string(body), username.Username, acc.Name)
-				log.Debug().Str("new-body", newBody).Msg("New body passed to auth begin endpoint")
-				r.Body = io.NopCloser(strings.NewReader(newBody))
-				r.ContentLength = int64(len(newBody))
-				handler.ServeHTTP(w, r)
-			case storage.ErrAccountNotFound:
-				log.Debug().Msg("Account from token not found")
-				other.HttpErr(w, ErrIdDataNotFound, "Account from token not found", http.StatusForbidden)
-			default:
-				other.HttpErr(w, ErrIdDbErr, "Failed to get account in db", http.StatusInternalServerError)
-				log.Error().Err(err).Msg("Failed to get account from db")
-			}
-		}
 	})
 }
