@@ -203,7 +203,7 @@ func fuckWithLoginRequest(
 		// Do nothing in this branch
 		case storage.ErrAccountNotFound:
 			// Account doesn't exist, catch it
-			other.HttpErr(w, ErrIdDataNotFound, "Username not found", ErrIdBadRequest)
+			other.HttpErr(w, ErrIdDataNotFound, "Username not found", http.StatusNotFound)
 			return
 		default:
 			// catch db failures
